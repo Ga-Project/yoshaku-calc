@@ -23,13 +23,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ja">
       <body>
-        {/*
-          analytics（公開直前に1つ有効化・cookieless・秘密キー不要）:
-          (1) GoatCounter（GitHub Pages/汎用ホスティングで利用可）
-          <script data-goatcounter="https://__GC_CODE__.goatcounter.com/count" async src="//gc.zgo.at/count.js" />
-          (2) Cloudflare Web Analytics（Cloudflare 上に載せる場合）
-          <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"__CF_BEACON_TOKEN__"}' />
-        */}
+        {/* analytics: GoatCounter（cookieless・公開タグは秘密ではない公開コード） */}
+        <script
+          data-goatcounter="https://yoshaku-calc.goatcounter.com/count"
+          async
+          src="//gc.zgo.at/count.js"
+        />
         {children}
       </body>
     </html>
