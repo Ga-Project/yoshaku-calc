@@ -112,6 +112,12 @@ export default function Home() {
   const garment = getGarment(garmentId) ?? FIRST_GARMENT;
   const values = rowFor(store, garmentId);
 
+  // 入力のうち1つでも範囲外/空なら結果は概算（計算は既定値にクランプされるが、
+  // ユーザーには「いま見ている数値が入力どおりではない」ことを明示する）。
+  const invalidCount = garment.inputs.filter((input) =>
+    isFieldInvalid(values[input.key] ?? String(input.def), input.min, input.max),
+  ).length;
+
   const result = useMemo<CalcResult>(() => {
     // garmentId は復元時に getGarment で検証済みなので常に有効。null にはならない。
     return computeYardage(garmentId, width, values)!;
@@ -183,9 +189,17 @@ export default function Home() {
 
       <main id="main" tabIndex={-1} style={{ outline: "none" }}>
         <div className="container app-main">
-          <h1 className="sr-only">
-            用尺カルク — 衣服別 必要生地量（用尺）計算ツール
-          </h1>
+          <div className="app-intro">
+            <span className="eyebrow">布を買う前に</span>
+            <h1>
+              <span className="accent-text">何メートル</span>
+              要るか、すぐ分かる。
+            </h1>
+            <p>
+              作りたいものと生地幅・サイズを選ぶだけ。必要な生地の長さ（用尺）と、
+              わ裁ちの裁断レイアウト概算をその場で表示します。
+            </p>
+          </div>
 
           <div className="calc-grid">
             {/* 入力 */}
@@ -299,6 +313,34 @@ export default function Home() {
             <section className="result-col" aria-label="計算結果">
               <div className="panel">
                 <p className="panel-title">必要な生地の目安</p>
+
+                {!isRestored ? (
+                  /* 復元（保存値/URL）完了までのローディング骨組み */
+                  <div aria-hidden="true">
+                    <div
+                      className="skeleton"
+                      style={{ height: "3.5rem", width: "60%" }}
+                    />
+                    <div
+                      className="skeleton"
+                      style={{
+                        height: "1rem",
+                        width: "75%",
+                        marginTop: "var(--sp-3)",
+                      }}
+                    />
+                    <div
+                      className="skeleton"
+                      style={{
+                        height: "14rem",
+                        width: "100%",
+                        marginTop: "var(--sp-5)",
+                        borderRadius: "var(--radius-sm)",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <>
                 <p className="result-figure" role="status" aria-live="polite">
                   <span className="result-num">{result.totalM.toFixed(1)}</span>
                   <span className="result-unit">
@@ -309,6 +351,21 @@ export default function Home() {
                 <p className="result-sub">
                   生地幅 {result.fabricWidth}cm・10cm 単位で購入する目安。
                 </p>
+
+                {invalidCount > 0 && (
+                  <div
+                    className="alert alert-err"
+                    role="alert"
+                    style={{ marginTop: "var(--sp-4)" }}
+                  >
+                    <span aria-hidden="true">⚠</span>
+                    <span>
+                      入力に範囲外の項目があります（{invalidCount}件）。その項目は
+                      安全な範囲に丸めて計算しています。入力欄をご確認ください。
+                    </span>
+                  </div>
+                )}
+
                 {result.widthShortage && (
                   <p className="result-badge">
                     <span className="badge badge-warn">
@@ -372,6 +429,8 @@ export default function Home() {
                     {copied ? "✓ URLをコピーしました" : ""}
                   </span>
                 </div>
+                  </>
+                )}
               </div>
             </section>
           </div>

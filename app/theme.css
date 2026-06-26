@@ -1,345 +1,71 @@
-/* 用尺カルク — 製品テーマ
+/* 用尺カルク — 製品テーマ層（この製品の "顔" をここで作る）
  *
- * globals.css のトークンを土台に、洋裁・手芸の温かみを出すアクセント（糸・ピンクッション色）と
- * 裁断レイアウト図のパーツ配色を足す。ベースの構造クラス（.btn / .card / .container）はそのまま使う。
- * アクセントは light / dark の双方でコントラスト AA を満たす値を選んでいる。
+ * globals.css の構造・a11y・コンポーネント挙動はそのまま使い、ここでは
+ * トークンだけを上書きして固有のアイデンティティを与える。構造クラス
+ * （.btn / .card / .panel / .seg …）の見た目は直接書き換えない。
+ *
+ * ■ アイデンティティ: 「藍と紙」 — 洋裁・テキスタイルの道具らしい落ち着き
+ *   - accent = 藍（インディゴ）。日本の染め布を想起させ、計算ツールとしての
+ *     信頼感・読みやすさも兼ねる落ち着いた青。
+ *   - neutral = 生成り（unbleached）の紙・生地の温かみ（暖色寄りグレースケール）。
+ *   - 形 = ほどよく丸い角（道具の柔らかさ）。display 見出しは明朝で布・和の質感。
+ *   - 裁断レイアウト図のパーツ配色は、茜・藍・黄土・セージの craft パレット。
+ *
+ * ■ AA 検証（出荷前に確認済み・theme.css 冒頭手順）
+ *   light: accent(H224 S58 L42) vs white = 7.6:1 / vs bg = 7.4:1
+ *   dark : accent(globals が L68 に持ち上げ) vs bg = 6.1:1 / accent 上文字 = 6.1:1
+ *   piece 各色（実線枠の単色）vs 生地地: light ≥4.1:1 / dark ≥6.2:1
  */
 
 :root {
-  /* 糸・ピンクッションを想起させるローズ系アクセント（対 白 5.6:1 AA） */
-  --accent: #b02a5b;
-  --accent-hover: #8f1f49;
+  /* === accent: 藍（インディゴ） === */
+  --accent-h: 224;
+  --accent-s: 58%;
+  --accent-l: 42%; /* light で white/accent・accent/bg ともに ≥7:1（AA 余裕） */
   --accent-fg: #ffffff;
 
-  /* 紙・生地の温かみを少しだけ面に乗せる */
-  --surface: #faf7f4;
-  --surface-2: #f1ebe6;
-  --border: #e7ded7;
+  /* === neutral: 生成りの紙・生地（暖色寄り） === */
+  --neutral-hue: 34;
+  --neutral-chroma: 14%;
 
-  /* 警告バッジの文字色（地色に対し WCAG AA を満たす濃いアンバー） */
-  --warn-ink: #7c2d12;
+  /* === 形・密度・タイポ === */
+  --radius-sm: 9px;
+  --radius: 13px;
+  --radius-lg: 20px;
+  --density: 1;
+  /* 見出し（製品名・主見出し）は明朝で布の質感を出す。本文は読みやすい sans のまま。 */
+  --font-display:
+    "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
 
-  /* 裁断レイアウト図のパーツ配色（互いに識別しやすい機能色） */
-  --piece-front: #2563eb;
-  --piece-back: #0d9488;
-  --piece-sleeve: #d97706;
-  --piece-accent: #7c3aed;
+  /* === 裁断レイアウト図のパーツ配色（互いに識別しやすい craft 色） === */
+  /* 淡塗り（fill-opacity）＋同色の実線枠で表現。枠が単色でコントラストを担う。 */
+  --piece-front: hsl(224 55% 42%); /* 前パーツ = 藍 */
+  --piece-back: hsl(150 30% 34%); /* 後パーツ = セージ */
+  --piece-sleeve: hsl(32 68% 40%); /* 袖 = 黄土（オークル） */
+  --piece-accent: hsl(352 52% 44%); /* 見返し・ベルト = 茜（マダー） */
   --piece-fill-opacity: 0.16;
   --piece-fill-pct: 16%;
 
-  /* 生地（背景）の色 */
-  --fabric: #fbfaf8;
-  --fabric-line: #d9cfc6;
+  /* === 裁断図の「生地」面（生成りの反物） === */
+  --fabric: hsl(36 34% 97%);
+  --fabric-line: hsl(34 22% 84%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent: #f48fb1;
-    --accent-hover: #f7a9c4;
-    --accent-fg: #1a1014;
-    --surface: #1b181c;
-    --surface-2: #262026;
-    --border: #352c33;
+    /* accent の L/S は globals が dark 用に持ち上げる（藍は夜の藍として明るく）。
+       ここでは派生しないトークンのみ製品都合で上書きする。 */
 
-    --warn-ink: #ffce93;
-
-    --piece-front: #7aa2ff;
-    --piece-back: #4cd3c0;
-    --piece-sleeve: #f0b463;
-    --piece-accent: #b794f6;
+    /* 裁断図のパーツ配色（暗背景で見えるよう明度を上げる） */
+    --piece-front: hsl(224 70% 70%);
+    --piece-back: hsl(150 45% 60%);
+    --piece-sleeve: hsl(34 75% 62%);
+    --piece-accent: hsl(352 62% 68%);
     --piece-fill-opacity: 0.3;
     --piece-fill-pct: 30%;
 
-    --fabric: #15131a;
-    --fabric-line: #3a313b;
-  }
-}
-
-/* スクリーンリーダー専用（視覚的には隠すが DOM とアクセシビリティツリーには残す） */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* ===== ページ全体 ===== */
-
-.app-header {
-  border-bottom: 1px solid var(--border);
-  padding-block: var(--sp-4);
-}
-.app-header .container {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
-}
-.app-title {
-  font-size: var(--fs-md);
-  font-weight: var(--fw-bold);
-  letter-spacing: 0.01em;
-}
-.app-title .mark {
-  color: var(--accent);
-}
-.app-tagline {
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-
-.app-main {
-  padding-block: var(--sp-8) var(--sp-16);
-}
-
-/* ===== 2カラム（広い画面）/ 1カラム（モバイル） ===== */
-
-.calc-grid {
-  display: grid;
-  gap: var(--sp-6);
-  grid-template-columns: 1fr;
-}
-@media (min-width: 56rem) {
-  .calc-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    align-items: start;
-  }
-  .result-col {
-    position: sticky;
-    top: var(--sp-6);
-  }
-}
-
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--sp-6);
-  box-shadow: var(--shadow-sm);
-}
-.panel + .panel {
-  margin-top: var(--sp-6);
-}
-.panel-title {
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-bold);
-  color: var(--text-dim);
-  text-transform: none;
-  margin-bottom: var(--sp-4);
-}
-
-/* ===== セグメント選択（種別・生地幅） ===== */
-
-.seg {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-}
-.seg-item {
-  flex: 1 1 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sp-2);
-  min-height: 44px;
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  cursor: pointer;
-  transition:
-    border-color var(--transition),
-    background var(--transition);
-}
-.seg-item:hover {
-  background: var(--surface-2);
-}
-.seg-item[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
-  color: var(--text);
-  font-weight: var(--fw-bold);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-.seg-item .emoji {
-  font-size: 1.1em;
-  line-height: 1;
-}
-.width-seg .seg-item {
-  flex-direction: column;
-  gap: 0;
-}
-.width-seg .seg-sub {
-  font-size: var(--fs-xs);
-  color: var(--text-dim);
-  font-weight: var(--fw-normal);
-}
-
-.seg-blurb {
-  margin-top: var(--sp-3);
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-
-/* ===== 入力フィールド ===== */
-
-.fields {
-  display: grid;
-  gap: var(--sp-4);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
-  margin-top: var(--sp-2);
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-.field label {
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-}
-.field .unit {
-  color: var(--text-dim);
-  font-weight: var(--fw-normal);
-}
-.field .hint {
-  font-size: var(--fs-xs);
-  color: var(--text-dim);
-}
-.field input {
-  font-variant-numeric: tabular-nums;
-}
-.field input[aria-invalid="true"] {
-  border-color: var(--err);
-}
-.field-error {
-  color: var(--err);
-  font-size: var(--fs-xs);
-}
-
-/* ===== 結果（必要◯m を主役に） ===== */
-
-.result-figure {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
-}
-.result-num {
-  font-size: clamp(2.75rem, 9vw, 3.75rem);
-  font-weight: var(--fw-bold);
-  line-height: 1;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-}
-.result-unit {
-  font-size: var(--fs-md);
-  font-weight: var(--fw-medium);
-  color: var(--text-dim);
-}
-.result-unit-m {
-  color: var(--text);
-}
-.result-sub {
-  margin-top: var(--sp-2);
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-.result-badge {
-  margin-top: var(--sp-3);
-}
-.badge-warn {
-  background: color-mix(in srgb, var(--warn) 13%, var(--bg));
-  color: var(--warn-ink);
-  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
-}
-
-/* ===== 裁断レイアウト図 ===== */
-
-.layout-figure {
-  margin-top: var(--sp-2);
-}
-.layout-figure svg {
-  width: 100%;
-  height: auto;
-  background: var(--fabric);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-4);
-  margin-top: var(--sp-4);
-  font-size: var(--fs-sm);
-}
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-.legend-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  border: 1.5px solid currentColor;
-  /* SVG のパーツ（淡塗り＋実線枠）と見え方を揃える */
-  background: color-mix(in srgb, currentColor var(--piece-fill-pct), transparent);
-}
-
-/* ===== 注意書き ===== */
-
-.notes {
-  margin-top: var(--sp-4);
-  padding-left: 1.1em;
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-.notes li + li {
-  margin-top: var(--sp-1);
-}
-
-/* ===== アクション ===== */
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-3);
-  margin-top: var(--sp-6);
-}
-.action-status {
-  align-self: center;
-  font-size: var(--fs-sm);
-  color: var(--ok);
-}
-
-/* ===== 印刷（生地店で見せる / 紙に出す） ===== */
-
-@media print {
-  .app-header,
-  .actions,
-  .seg {
-    display: none !important;
-  }
-  .calc-grid {
-    grid-template-columns: 1fr;
-  }
-  .panel {
-    box-shadow: none;
-    border-color: #ccc;
-    break-inside: avoid;
-  }
-  .result-num {
-    color: #000;
+    /* 生地面（夜の作業台の反物） */
+    --fabric: hsl(34 20% 9%);
+    --fabric-line: hsl(34 14% 26%);
   }
 }
