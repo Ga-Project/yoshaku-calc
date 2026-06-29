@@ -871,16 +871,19 @@ hr {
   }
 }
 
+
 /* =========================================================================
- * 用尺カルク — 製品レイアウト層
+ * 用尺カルク — 製品レイアウト層 「製図台／型紙」
  *
- * 共通の .btn / .card / .input / .badge / .alert / .empty-state / .skeleton 等は
- * 上の基盤をそのまま使い、ここでは「計算機の画面構成」（ヘッダー・2カラム・
- * セグメント選択・結果の主役表示・裁断レイアウト図）だけを組み立てる。
- * 色・温度感・形は theme.css のトークンから受け取り、ここに固有色は直書きしない。
+ * 共通の .btn / .field / .badge / .alert / .skeleton / focus-visible / 44px /
+ * reduced-motion は基盤をそのまま使う。ここでは hero＋カードグリッドではなく、
+ * 「方眼の製図台を地に、裁断レイアウト図を画面中央の主役に据える」骨格を組む:
+ *   ・銘板ヘッダー（明朝の角印マーク＋ワードマーク＋craft の刻印ラベル）
+ *   ・[型紙の指定パネル | 製図台ステージ] の 2 ペイン（脇 + 主役）
+ *   ・製図台ステージ = 見出しに必要用尺を大きく / 目盛り定規 / 反物に型紙パーツ
+ * 色・温度感・形は theme.css のトークンから受け取り、固有色は直書きしない。
  * ========================================================================= */
 
-/* スクリーンリーダー専用 */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -893,117 +896,115 @@ hr {
   border: 0;
 }
 
-/* ===== アプリヘッダー（道具らしい銘板） ===== */
+/* 画面の地 = 製図台の方眼（藍の薄いグリッド） */
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  background-position: -1px -1px;
+}
 
-.app-header {
-  position: relative;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  padding-block: var(--sp-4);
-  overflow: hidden;
+.sheet {
+  width: 100%;
+  max-width: 78rem;
+  margin-inline: auto;
+  padding: var(--sp-6) var(--sp-6) var(--sp-16);
 }
-/* ヘッダー上端に走る一本の「縫い目」ライン（破線）— 手芸の世界観 */
-.app-header::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--accent) 0 8px,
-    transparent 8px 16px
-  );
-  opacity: 0.5;
+@media (min-width: 48rem) {
+  .sheet {
+    padding-inline: var(--sp-8);
+  }
 }
-.app-header .container {
+
+/* ===== 銘板ヘッダー（製図台の表題欄） ===== */
+
+.plate {
   display: flex;
-  align-items: baseline;
-  gap: var(--sp-2) var(--sp-4);
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
   flex-wrap: wrap;
+  border-bottom: 2px solid var(--text);
+  padding-bottom: var(--sp-3);
 }
-.app-title {
+.plate-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.plate-mark {
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  color: var(--accent);
   font-family: var(--font-display);
-  font-size: var(--fs-md);
-  font-weight: var(--fw-black);
-  letter-spacing: var(--tracking-snug);
+  font-size: 1.4rem;
+  font-weight: var(--fw-bold);
+  flex: none;
+}
+.plate-word {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 4.5vw, 1.95rem);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.03em;
+  line-height: 1.05;
   color: var(--text);
 }
-.app-title .mark {
-  display: inline-grid;
-  place-items: center;
-  width: 1.55em;
-  height: 1.55em;
-  margin-inline: 0.04em;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-weight: var(--fw-black);
-  transform: translateY(0.12em);
-  box-shadow: var(--shadow-xs);
-}
-.app-tagline {
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-
-.app-main {
-  padding-block: var(--sp-8) var(--sp-16);
-}
-
-/* hero 風のリード（素の h1 で終わらせない作り込み） */
-.app-intro {
-  margin-bottom: var(--sp-8);
-  max-width: 60ch;
-}
-.app-intro .eyebrow {
-  margin-bottom: var(--sp-2);
-}
-.app-intro h1 {
-  font-size: clamp(var(--fs-xl), 4.4vw, var(--fs-2xl));
-  font-weight: var(--fw-black);
-  letter-spacing: var(--tracking-tight);
-}
-.app-intro h1 .accent-text {
+.plate-word .mark {
   color: var(--accent);
 }
-.app-intro p {
+.plate-sub {
+  display: block;
+  font-size: var(--fs-sm);
   color: var(--text-soft);
-  font-size: var(--fs-md);
+  letter-spacing: 0.01em;
+  margin-top: 2px;
+}
+.plate-stamp {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  letter-spacing: 0.32em;
+  border-top: 1px dashed var(--border-strong);
+  padding-top: 3px;
+  white-space: nowrap;
+}
+.sheet-lead {
+  font-size: var(--fs-sm);
+  color: var(--text-soft);
+  margin: var(--sp-3) 0 var(--sp-6);
+  max-width: 64ch;
   line-height: 1.6;
 }
 
-/* ===== 2カラム（広い画面）/ 1カラム（モバイル） ===== */
+/* ===== 製図台レイアウト（脇パネル + 主役ステージ） ===== */
 
-.calc-grid {
+.board {
   display: grid;
   gap: var(--sp-6);
   grid-template-columns: 1fr;
+  align-items: start;
 }
-@media (min-width: 56rem) {
-  .calc-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    align-items: start;
-  }
-  .result-col {
-    position: sticky;
-    top: var(--sp-6);
+@media (min-width: 60rem) {
+  .board {
+    grid-template-columns: 20.5rem minmax(0, 1fr);
+    gap: var(--sp-6);
   }
 }
 
-/* 入力パネル（card を継承して縦に積む） */
-.panel {
+/* 脇の「型紙の指定」パネル（紙の指示書） */
+.spec {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: var(--sp-6);
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
   box-shadow: var(--shadow-sm);
 }
-.panel + .panel {
-  margin-top: var(--sp-6);
-}
-.panel-title {
+.spec-head {
   font-size: var(--fs-xs);
   font-weight: var(--fw-bold);
   letter-spacing: var(--tracking-wide);
@@ -1011,20 +1012,28 @@ hr {
   color: var(--text-dim);
   margin-bottom: var(--sp-4);
 }
+.spec-label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-soft);
+  margin: var(--sp-5) 0 var(--sp-2);
+}
+.spec-label:first-of-type {
+  margin-top: 0;
+}
 
-/* ===== セグメント選択（種別・生地幅） ===== */
-
-.seg {
+/* 衣服種別 = 縦並びの型紙選択（カードグリッドにしない） */
+.garment-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--sp-2);
 }
-.seg-item {
-  flex: 1 1 auto;
-  display: inline-flex;
+.garment-opt {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
+  width: 100%;
   min-height: 44px;
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border);
@@ -1034,6 +1043,7 @@ hr {
   font: inherit;
   font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
+  text-align: left;
   cursor: pointer;
   transition:
     border-color var(--transition),
@@ -1041,116 +1051,231 @@ hr {
     box-shadow var(--transition),
     color var(--transition);
 }
-.seg-item:hover {
+.garment-opt:hover {
   background: var(--surface-2);
   border-color: var(--border-strong);
 }
-.seg-item[aria-pressed="true"] {
+.garment-opt[aria-pressed="true"] {
   border-color: var(--accent);
   background: var(--accent-tint);
   color: var(--accent);
   font-weight: var(--fw-bold);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
-.seg-item .emoji {
-  font-size: 1.1em;
+.garment-opt .emoji {
+  font-size: 1.15em;
   line-height: 1;
+  flex: none;
 }
-.width-seg .seg-item {
-  flex-direction: column;
-  gap: 0;
-}
-.width-seg .seg-sub {
-  font-size: var(--fs-xs);
+.spec-blurb {
+  margin-top: var(--sp-3);
   color: var(--text-dim);
-  font-weight: var(--fw-normal);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
 }
-.seg-item[aria-pressed="true"] .seg-sub {
+
+/* 生地幅 = 3 連の刻み（定規目盛りのチップ） */
+.width-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+.width-chip {
+  flex: 1;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    box-shadow var(--transition),
+    color var(--transition);
+}
+.width-chip:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.width-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: var(--fw-bold);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.width-chip small {
+  font-size: 10px;
+  font-weight: var(--fw-normal);
+  color: var(--text-dim);
+}
+.width-chip[aria-pressed="true"] small {
   color: var(--accent);
 }
 
-.seg-blurb {
-  margin-top: var(--sp-3);
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-
-/* ===== 入力フィールド ===== */
-
-.fields {
-  display: grid;
-  gap: var(--sp-4);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
-  margin-top: var(--sp-2);
-}
-.fields .field label {
-  color: var(--text);
-}
-.field .unit {
-  color: var(--text-dim);
-  font-weight: var(--fw-normal);
-}
-.field .hint {
-  font-size: var(--fs-xs);
-  color: var(--text-dim);
-}
-.field input {
-  font-variant-numeric: tabular-nums;
-}
-
-/* ===== 結果（必要◯m を主役に） ===== */
-
-.result-figure {
+/* サイズ = 製図の寸法欄（下線つきの寸法フィールド） */
+.dims {
   display: flex;
-  align-items: baseline;
   gap: var(--sp-3);
   flex-wrap: wrap;
-  margin-top: var(--sp-2);
 }
-.result-num {
+.dim {
+  flex: 1 1 4.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.dim label {
+  order: 2;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  margin-top: var(--sp-1);
+}
+.dim input {
+  order: 1;
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  border-radius: 0;
+  background: transparent;
+  padding: var(--sp-2) 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  transition: border-color var(--transition), background var(--transition);
+}
+.dim input:hover {
+  background: var(--surface-sunken);
+}
+.dim input:focus,
+.dim input:focus-visible {
+  outline: none;
+  background: var(--accent-tint);
+  box-shadow: 0 2px 0 0 var(--accent);
+}
+.dim input[aria-invalid="true"] {
+  border-bottom-color: var(--err) !important;
+}
+.dim-err {
+  order: 3;
+  font-size: var(--fs-xs);
+  color: var(--err);
+  font-weight: var(--fw-medium);
+  margin-top: var(--sp-1);
+}
+.spec-note {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px dashed var(--border);
+}
+
+/* ===== 製図台ステージ（主役） ===== */
+
+.stage {
+  background: var(--fabric);
+  border: 1px solid var(--fabric-line);
+  border-radius: var(--radius);
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+  box-shadow: var(--shadow);
+  position: relative;
+}
+.stage-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.stage-title {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+/* 必要用尺 = ステージ見出しの大数字 */
+.stage-figure {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+.stage-num {
   font-family: var(--font-display);
-  font-size: clamp(3rem, 10vw, 4rem);
+  font-size: clamp(2.6rem, 8vw, 3.4rem);
   font-weight: var(--fw-black);
-  line-height: 1;
+  line-height: 0.95;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--tracking-tight);
 }
-.result-unit {
-  font-size: var(--fs-md);
-  font-weight: var(--fw-medium);
-  color: var(--text-dim);
-}
-.result-unit-m {
-  color: var(--text);
-  font-weight: var(--fw-bold);
-}
-.result-sub {
-  margin-top: var(--sp-2);
-  color: var(--text-soft);
+.stage-unit {
   font-size: var(--fs-sm);
+  color: var(--text-soft);
+  font-weight: var(--fw-medium);
 }
-.result-badge {
-  margin-top: var(--sp-3);
+.stage-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  margin-top: var(--sp-1);
+  width: 100%;
 }
 
-/* ===== 裁断レイアウト図 ===== */
-
-.layout-figure {
-  margin-top: var(--sp-5);
+/* 目盛り定規（ステージ上端の物差し） */
+.ruler {
+  position: relative;
+  height: 18px;
+  margin-top: var(--sp-4);
+  border-left: 1px solid var(--fabric-line);
+  border-right: 1px solid var(--fabric-line);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--fabric-line) 0 1px,
+    transparent 1px
+  );
 }
-.layout-figure svg {
+.ruler span {
+  position: absolute;
+  top: 2px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  transform: translateX(-50%);
+}
+.ruler span.r0 { left: 0; transform: none; }
+.ruler span.rend { right: 0; left: auto; transform: none; }
+
+/* 反物（裁断レイアウトの SVG をのせる台） */
+.bolt {
+  margin-top: var(--sp-2);
+  border: 1.5px dashed var(--fabric-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+.bolt svg {
   width: 100%;
   height: auto;
-  background: var(--fabric);
-  border: 1px solid var(--fabric-line);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-xs);
+  display: block;
+  max-height: 64vh;
 }
+
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-4);
+  gap: var(--sp-2) var(--sp-5);
   margin-top: var(--sp-4);
   font-size: var(--fs-sm);
   list-style: none;
@@ -1163,68 +1288,81 @@ hr {
   color: var(--text-soft);
 }
 .legend-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
   border: 1.5px solid currentColor;
-  /* SVG のパーツ（淡塗り＋実線枠）と見え方を揃える */
   background: color-mix(in srgb, currentColor var(--piece-fill-pct), transparent);
+  flex: none;
 }
 
-/* ===== 注意書き ===== */
+.stage-figure[role="status"] {
+  /* live region; レイアウトは .stage-figure を継承 */
+}
 
 .notes {
   margin-top: var(--sp-5);
   padding-left: 1.1em;
   color: var(--text-dim);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   line-height: 1.55;
 }
 .notes li + li {
   margin-top: var(--sp-1);
 }
 
-/* ===== アクション ===== */
-
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-3);
   margin-top: var(--sp-6);
+  align-items: center;
 }
 .action-status {
-  align-self: center;
   font-size: var(--fs-sm);
   color: var(--ok);
   font-weight: var(--fw-medium);
 }
 
-/* ===== フッター（製品のトーンに馴染む） ===== */
-.site-footer {
-  margin-top: var(--sp-16);
+/* warn バッジ（生地幅不足） */
+.stage-flag {
+  margin-top: var(--sp-3);
+}
+
+/* ===== フッター ===== */
+.sheet-footer {
+  margin-top: var(--sp-12);
+  padding-top: var(--sp-5);
+  border-top: 1px dashed var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  max-width: 64ch;
 }
 
 /* ===== 印刷（生地店で見せる / 紙に出す） ===== */
-
 @media print {
-  .app-header,
-  .app-intro,
+  body {
+    background-image: none;
+  }
   .actions,
-  .seg,
+  .spec .garment-list,
+  .spec .width-row,
   .skip-link,
-  .site-footer {
+  .sheet-footer {
     display: none !important;
   }
-  .calc-grid {
+  .board {
     grid-template-columns: 1fr;
     gap: var(--sp-4);
   }
-  .panel {
+  .stage,
+  .spec {
     box-shadow: none;
     border-color: #ccc;
     break-inside: avoid;
   }
-  .result-num {
+  .stage-num {
     color: #000;
   }
 }

@@ -22,6 +22,12 @@ const PIECE_VARS: Record<string, string> = {
   accent: "--piece-accent",
 };
 
+const WIDTH_KIND: Record<number, string> = {
+  90: "シングル幅",
+  110: "標準幅",
+  140: "ダブル幅",
+};
+
 function defaultStore(): Store {
   const store: Store = {};
   for (const g of GARMENTS) {
@@ -172,209 +178,216 @@ export default function Home() {
 
   return (
     <>
-      <a className="skip-link" href="#main">
+      <a className="skip-link" href="#board">
         本文へスキップ
       </a>
 
-      <header className="app-header">
-        <div className="container">
-          <span className="app-title">
-            用<span className="mark">尺</span>カルク
-          </span>
-          <span className="app-tagline">
-            衣服別・必要生地量（用尺）と裁断レイアウトの早見ツール
-          </span>
-        </div>
-      </header>
-
-      <main id="main" tabIndex={-1} style={{ outline: "none" }}>
-        <div className="container app-main">
-          <div className="app-intro">
-            <span className="eyebrow">布を買う前に</span>
-            <h1>
-              <span className="accent-text">何メートル</span>
-              要るか、すぐ分かる。
-            </h1>
-            <p>
-              作りたいものと生地幅・サイズを選ぶだけ。必要な生地の長さ（用尺）と、
-              わ裁ちの裁断レイアウト概算をその場で表示します。
-            </p>
+      <div className="sheet">
+        {/* 銘板ヘッダー（製図台の表題欄） */}
+        <header className="plate">
+          <div className="plate-brand">
+            <span className="plate-mark" aria-hidden="true">
+              尺
+            </span>
+            <span>
+              <span className="plate-word">
+                用<span className="mark">尺</span>カルク
+              </span>
+              <span className="plate-sub">
+                衣服別 必要生地量・裁断レイアウト早見
+              </span>
+            </span>
           </div>
+          <span className="plate-stamp" aria-hidden="true">
+            CUTTING&nbsp;LAYOUT
+          </span>
+        </header>
 
-          <div className="calc-grid">
-            {/* 入力 */}
-            <section className="input-col" aria-label="入力">
-              <div className="panel">
-                <p className="panel-title" id="garment-label">
-                  作りたいもの
-                </p>
-                <div
-                  className="seg"
-                  role="group"
-                  aria-labelledby="garment-label"
+        <p className="sheet-lead">
+          作りたいものと生地幅・サイズを指定すると、
+          <strong>必要な用尺と裁断の取り方</strong>
+          を製図台の上に描き出します。布を買う前の見積りに。
+        </p>
+
+        <div className="board" id="board">
+          {/* 脇: 型紙の指定パネル */}
+          <form
+            className="spec"
+            aria-label="型紙の指定"
+            onSubmit={(e) => e.preventDefault()}
+          >
+            <p className="spec-head">型紙の指定</p>
+
+            <span className="spec-label" id="garment-label">
+              衣服の種類
+            </span>
+            <div
+              className="garment-list"
+              role="group"
+              aria-labelledby="garment-label"
+            >
+              {GARMENTS.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  className="garment-opt"
+                  aria-pressed={g.id === garmentId}
+                  onClick={() => {
+                    setGarmentId(g.id);
+                    setCopied(false);
+                  }}
                 >
-                  {GARMENTS.map((g) => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      className="seg-item"
-                      aria-pressed={g.id === garmentId}
-                      onClick={() => {
-                        setGarmentId(g.id);
-                        setCopied(false);
-                      }}
-                    >
-                      <span className="emoji" aria-hidden="true">
-                        {g.emoji}
-                      </span>
-                      {g.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="seg-blurb">{garment.blurb}</p>
-              </div>
-
-              <div className="panel">
-                <p className="panel-title" id="width-label">
-                  生地幅
-                </p>
-                <div
-                  className="seg width-seg"
-                  role="group"
-                  aria-labelledby="width-label"
-                >
-                  {FABRIC_WIDTHS.map((w) => (
-                    <button
-                      key={w}
-                      type="button"
-                      className="seg-item"
-                      aria-pressed={w === width}
-                      onClick={() => {
-                        setWidth(w);
-                        setCopied(false);
-                      }}
-                    >
-                      <span>{w}cm</span>
-                      <span className="seg-sub">
-                        {w === 90
-                          ? "シングル幅"
-                          : w === 110
-                            ? "標準幅"
-                            : "ダブル幅"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="panel">
-                <p className="panel-title">サイズ（cm）</p>
-                <div className="fields">
-                  {garment.inputs.map((input) => {
-                    const raw = values[input.key] ?? String(input.def);
-                    const invalid = isFieldInvalid(raw, input.min, input.max);
-                    const fieldId = `f-${garmentId}-${input.key}`;
-                    return (
-                      <div className="field" key={input.key}>
-                        <label htmlFor={fieldId}>
-                          {input.label}{" "}
-                          <span className="unit">（{input.unit}）</span>
-                        </label>
-                        <input
-                          id={fieldId}
-                          type="number"
-                          inputMode="numeric"
-                          min={input.min}
-                          max={input.max}
-                          step={1}
-                          value={raw}
-                          aria-invalid={invalid}
-                          aria-describedby={`${fieldId}-hint`}
-                          onChange={(e) =>
-                            updateField(input.key, e.target.value)
-                          }
-                        />
-                        <span
-                          className={invalid ? "field-error" : "hint"}
-                          id={`${fieldId}-hint`}
-                        >
-                          {invalid
-                            ? `${input.min}〜${input.max} の範囲で入力してください`
-                            : (input.hint ?? `${input.min}〜${input.max}cm`)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-
-            {/* 結果 */}
-            <section className="result-col" aria-label="計算結果">
-              <div className="panel">
-                <p className="panel-title">必要な生地の目安</p>
-
-                {!isRestored ? (
-                  /* 復元（保存値/URL）完了までのローディング骨組み */
-                  <div aria-hidden="true">
-                    <div
-                      className="skeleton"
-                      style={{ height: "3.5rem", width: "60%" }}
-                    />
-                    <div
-                      className="skeleton"
-                      style={{
-                        height: "1rem",
-                        width: "75%",
-                        marginTop: "var(--sp-3)",
-                      }}
-                    />
-                    <div
-                      className="skeleton"
-                      style={{
-                        height: "14rem",
-                        width: "100%",
-                        marginTop: "var(--sp-5)",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <>
-                <p className="result-figure" role="status" aria-live="polite">
-                  <span className="result-num">{result.totalM.toFixed(1)}</span>
-                  <span className="result-unit">
-                    <span className="result-unit-m">m</span>（{result.totalCm}
-                    cm）
+                  <span className="emoji" aria-hidden="true">
+                    {g.emoji}
                   </span>
-                </p>
-                <p className="result-sub">
-                  生地幅 {result.fabricWidth}cm・10cm 単位で購入する目安。
-                </p>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <p className="spec-blurb">{garment.blurb}</p>
+
+            <span className="spec-label" id="width-label">
+              生地幅
+            </span>
+            <div
+              className="width-row"
+              role="group"
+              aria-labelledby="width-label"
+            >
+              {FABRIC_WIDTHS.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  className="width-chip"
+                  aria-pressed={w === width}
+                  onClick={() => {
+                    setWidth(w);
+                    setCopied(false);
+                  }}
+                >
+                  <span>{w}</span>
+                  <small>{WIDTH_KIND[w] ?? ""}</small>
+                </button>
+              ))}
+            </div>
+
+            <span className="spec-label">サイズ（cm）</span>
+            <div className="dims">
+              {garment.inputs.map((input) => {
+                const raw = values[input.key] ?? String(input.def);
+                const invalid = isFieldInvalid(raw, input.min, input.max);
+                const fieldId = `f-${garmentId}-${input.key}`;
+                return (
+                  <div className="dim" key={input.key}>
+                    <input
+                      id={fieldId}
+                      type="number"
+                      inputMode="numeric"
+                      min={input.min}
+                      max={input.max}
+                      step={1}
+                      value={raw}
+                      aria-invalid={invalid}
+                      aria-describedby={`${fieldId}-hint`}
+                      onChange={(e) => updateField(input.key, e.target.value)}
+                    />
+                    <label htmlFor={fieldId}>{input.label}</label>
+                    {invalid && (
+                      <span className="dim-err" id={`${fieldId}-hint`}>
+                        {input.min}〜{input.max}
+                      </span>
+                    )}
+                    {!invalid && (
+                      <span className="sr-only" id={`${fieldId}-hint`}>
+                        {input.hint ?? `${input.min}〜${input.max}cm`}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="spec-note">
+              ＊裁ち代・地の目を見込んだ目安です。柄合わせのある生地は別途加算してください。
+            </p>
+          </form>
+
+          {/* 主役: 製図台ステージ */}
+          <section className="stage" aria-label="裁断レイアウト">
+            {!isRestored ? (
+              <div aria-hidden="true">
+                <div
+                  className="skeleton"
+                  style={{ height: "2.6rem", width: "55%" }}
+                />
+                <div
+                  className="skeleton"
+                  style={{
+                    height: "18px",
+                    width: "100%",
+                    marginTop: "var(--sp-4)",
+                  }}
+                />
+                <div
+                  className="skeleton"
+                  style={{
+                    height: "20rem",
+                    width: "100%",
+                    marginTop: "var(--sp-2)",
+                    borderRadius: "var(--radius-sm)",
+                  }}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="stage-head">
+                  <span className="stage-title">
+                    裁断レイアウト
+                    <br />
+                    生地幅 {result.fabricWidth}cm
+                  </span>
+                  <p
+                    className="stage-figure"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span className="stage-num">
+                      {result.totalM.toFixed(1)}
+                    </span>
+                    <span className="stage-unit">
+                      m / {result.totalCm}cm
+                    </span>
+                  </p>
+                  <span className="stage-sub">
+                    生地幅 {result.fabricWidth}cm・10cm 単位で購入する目安。
+                  </span>
+                </div>
 
                 {invalidCount > 0 && (
                   <div
                     className="alert alert-err"
                     role="alert"
-                    style={{ marginTop: "var(--sp-4)" }}
+                    style={{ marginTop: "var(--sp-3)" }}
                   >
                     <span aria-hidden="true">⚠</span>
                     <span>
                       入力に範囲外の項目があります（{invalidCount}件）。その項目は
-                      安全な範囲に丸めて計算しています。入力欄をご確認ください。
+                      安全な範囲に丸めて計算しています。寸法欄をご確認ください。
                     </span>
                   </div>
                 )}
 
                 {result.widthShortage && (
-                  <p className="result-badge">
+                  <p className="stage-flag">
                     <span className="badge badge-warn">
                       生地幅が不足する可能性
                     </span>
                   </p>
                 )}
 
-                <div className="layout-figure">
+                <Ruler workingWidth={result.workingWidth} totalCm={result.totalCm} />
+
+                <div className="bolt">
                   <LayoutFigure result={result} />
                 </div>
 
@@ -405,14 +418,14 @@ export default function Home() {
                     className="btn btn-primary"
                     onClick={shareUrl}
                   >
-                    この計算を共有
+                    この裁断図を共有
                   </button>
                   <button
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => window.print()}
                   >
-                    印刷・PDF保存
+                    PDFで印刷
                   </button>
                   <button
                     type="button"
@@ -429,22 +442,16 @@ export default function Home() {
                     {copied ? "✓ URLをコピーしました" : ""}
                   </span>
                 </div>
-                  </>
-                )}
-              </div>
-            </section>
-          </div>
+              </>
+            )}
+          </section>
         </div>
-      </main>
 
-      <footer className="site-footer">
-        <div className="container">
-          <p>
-            用尺カルク —
-            入力したサイズはこのブラウザにのみ保存され、外部には送信されません。
-          </p>
-        </div>
-      </footer>
+        <footer className="sheet-footer">
+          用尺カルク —
+          入力したサイズはこのブラウザにのみ保存され、外部には送信されません。
+        </footer>
+      </div>
     </>
   );
 }
@@ -468,6 +475,29 @@ function legendItems(result: CalcResult) {
   return out;
 }
 
+/** 製図台の目盛り定規（作業幅を 0〜上限の物差しとして示す）。 */
+function Ruler({
+  workingWidth,
+  totalCm,
+}: {
+  workingWidth: number;
+  totalCm: number;
+}) {
+  // 作業幅 = 生地幅/2。目盛りは作業幅方向（横）に 0 / 中間 / 端 を出す。
+  const mid = Math.round(workingWidth / 2);
+  return (
+    <div
+      className="ruler"
+      role="img"
+      aria-label={`製図台の物差し。作業幅 0 から ${workingWidth}cm。必要長さ 約 ${totalCm}cm。`}
+    >
+      <span className="r0">0</span>
+      <span style={{ left: "50%" }}>{mid}</span>
+      <span className="rend">{workingWidth}cm</span>
+    </div>
+  );
+}
+
 /** 裁断レイアウト概算図（わ裁ち・作業幅 = 生地幅/2 にパーツを配置）。 */
 function LayoutFigure({ result }: { result: CalcResult }) {
   const W = result.workingWidth;
@@ -483,7 +513,7 @@ function LayoutFigure({ result }: { result: CalcResult }) {
       viewBox={`0 0 ${vbW} ${vbH}`}
       role="img"
       aria-label={`生地幅${result.fabricWidth}cm・必要長さ約${result.totalCm}cmの裁断レイアウト概算。前後の身頃や袖などを二つ折りの生地に配置した図。`}
-      style={{ maxHeight: "68vh" }}
+      style={{ maxHeight: "64vh" }}
     >
       {/* 生地（作業幅ぶん） */}
       <rect
@@ -558,10 +588,8 @@ function LayoutFigure({ result }: { result: CalcResult }) {
 
       {/* 右側: 必要長さの寸法線（生地の右辺に寄り添わせる） */}
       <g style={{ stroke: "var(--text-dim)", strokeWidth: 0.4 }}>
-        {/* rect 右辺から寸法線への引出線（上・下） */}
         <line x1={padL + W} y1={0} x2={padL + W + 6} y2={0} />
         <line x1={padL + W} y1={H} x2={padL + W + 6} y2={H} />
-        {/* 寸法線本体（端の矢じり代わりの短いティック付き） */}
         <line x1={padL + W + 5} y1={0} x2={padL + W + 5} y2={H} />
         <line x1={padL + W + 3.5} y1={0} x2={padL + W + 6.5} y2={0} />
         <line x1={padL + W + 3.5} y1={H} x2={padL + W + 6.5} y2={H} />
