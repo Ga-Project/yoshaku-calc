@@ -1,0 +1,89 @@
+/* 用尺カルク — 製品テーマ層（この製品の "顔" をここで作る）
+ *
+ * globals.css のトークン・a11y・基本部品（.btn / .field / focus-visible / 44px /
+ * reduced-motion）は土台に使う。ただし構造（hero＋カードグリッド）は流用しない。
+ *
+ * ■ 構造コンセプト = 「製図台／型紙」
+ *   画面の地そのものを方眼の製図台（藍の方眼）にし、中央の主役を
+ *   「裁断レイアウト図（反物の上に型紙パーツを並べた図）」に据える。
+ *   左の脇に「型紙の指定」パネル、製図台の見出しに必要用尺を大きく出す。
+ *   いわゆる hero（大見出し＋リード）やカードグリッドは置かない。
+ *
+ * ■ アイデンティティ: 「藍と紙」 — 洋裁・テキスタイルの道具らしい落ち着き
+ *   - accent = 藍（インディゴ）。製図台の方眼線・型紙の指定・寸法線に使う。
+ *   - neutral = 生成り（unbleached）の紙・生地の温かみ（暖色寄りグレースケール）。
+ *   - display 見出しは明朝で布・和の質感。
+ *   - 裁断レイアウト図のパーツ配色は、藍・セージ・黄土・茜の craft パレット。
+ *
+ * ■ AA 検証（出荷前に確認済み）
+ *   light: accent(H224 S58 L42) vs white = 7.6:1 / vs bg = 7.4:1
+ *   dark : accent(globals が L68 に持ち上げ) vs bg = 6.1:1 / accent 上文字 = 6.1:1
+ *   piece 各色（実線枠の単色）vs 生地地: light ≥4.1:1 / dark ≥6.2:1
+ */
+
+:root {
+  /* === accent: 藍（インディゴ） === */
+  --accent-h: 224;
+  --accent-s: 58%;
+  --accent-l: 42%; /* light で white/accent・accent/bg ともに ≥7:1（AA 余裕） */
+  --accent-fg: #ffffff;
+
+  /* === neutral: 生成りの紙・生地（暖色寄り） === */
+  --neutral-hue: 34;
+  --neutral-chroma: 14%;
+
+  /* === 形・密度・タイポ === */
+  --radius-sm: 9px;
+  --radius: 13px;
+  --radius-lg: 20px;
+  --density: 1;
+  --font-display:
+    "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+
+  /* === 製図台の方眼（地） === */
+  --grid-line: hsl(224 50% 42% / 0.07);
+  --grid-size: 22px;
+
+  /* === 裁断レイアウト図のパーツ配色（互いに識別しやすい craft 色） === */
+  --piece-front: hsl(224 55% 42%); /* 前パーツ = 藍 */
+  --piece-back: hsl(150 30% 34%); /* 後パーツ = セージ */
+  --piece-sleeve: hsl(32 68% 40%); /* 袖 = 黄土（オークル） */
+  --piece-accent: hsl(352 52% 44%); /* 見返し・ベルト = 茜（マダー） */
+  --piece-fill-opacity: 0.16;
+  --piece-fill-pct: 16%;
+
+  /* === 裁断図の「生地」面（生成りの反物） === */
+  --fabric: hsl(36 34% 97%);
+  --fabric-line: hsl(34 22% 84%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 藍は夜の藍として明るく持ち上げる。
+     * globals.css も dark で --accent-l: 68% を当てているが、layout.tsx が
+     * globals → theme の順に読むため、上の :root { --accent-l: 42% } が
+     * 同一詳細度で後勝ちして dark でも 42% のまま残ってしまう。
+     * ここで再宣言して初めて dark の accent が効く（対 bg 6.3:1 で AA）。 */
+    --accent-l: 68%;
+
+    /* accent を「背景」に使う側（.skip-link / .btn-primary / .brand-mark）の前景。
+     * これも上の :root { --accent-fg: #fff } が globals の dark 値を後勝ちで潰す
+     * 同型の事故になっており、accent を明るくすると白字が乗って 2.93:1 まで落ちる。
+     * globals の意図どおり暗い前景に戻す（dark 6.1:1 / light は #fff のまま 7.6:1）。 */
+    --accent-fg: hsl(var(--neutral-hue) 40% 8%);
+
+    --grid-line: hsl(224 60% 70% / 0.08);
+
+    /* 裁断図のパーツ配色（暗背景で見えるよう明度を上げる） */
+    --piece-front: hsl(224 70% 70%);
+    --piece-back: hsl(150 45% 60%);
+    --piece-sleeve: hsl(34 75% 62%);
+    --piece-accent: hsl(352 62% 68%);
+    --piece-fill-opacity: 0.3;
+    --piece-fill-pct: 30%;
+
+    /* 生地面（夜の作業台の反物） */
+    --fabric: hsl(34 20% 9%);
+    --fabric-line: hsl(34 14% 26%);
+  }
+}
