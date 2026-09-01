@@ -38,9 +38,28 @@ jobs:
       - name: Scan full history
         run: gitleaks detect --no-banner --redact
 
+  # ---------------------------------------------------------------------------
+  # 型・lint・テスト。package.json には揃っているのに CI で走っていなかったため、
+  # 壊れたまま公開へ進めてしまう状態だった。build の前段に置いて公開を止める。
+  # ---------------------------------------------------------------------------
+  checks:
+    name: Lint / types / tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
   build:
     name: Build (static export)
-    needs: secret-scan # スキャン通過が前提。fail 時は skip され公開されない。
+    needs: [secret-scan, checks] # スキャンと検査の通過が前提。fail 時は skip され公開されない。
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

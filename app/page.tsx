@@ -7,10 +7,23 @@ import {
   computeYardage,
   getGarment,
 } from "@/lib/calc.mjs";
-import Guide from "./Guide";
+import Guide, { FAQ } from "./Guide";
+import JsonLd from "./JsonLd";
 
 type CalcResult = NonNullable<ReturnType<typeof computeYardage>>;
 type Store = Record<string, Record<string, string>>;
+
+// このページの FAQ を構造化データにする。表示（Guide.tsx）と同じ配列から作るので、
+// 文言を直すと両方が同時に変わり、食い違いようがない。
+// FAQ を表示しているのはこのページだけなので、ノードもこのページから出す。
+const FAQ_JSON_LD = {
+  "@type": "FAQPage",
+  mainEntity: FAQ.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const STORAGE_KEY = "yoshaku-calc:v1";
 const FIRST_GARMENT = GARMENTS[0]!;
@@ -179,6 +192,7 @@ export default function Home() {
 
   return (
     <>
+      <JsonLd nodes={[FAQ_JSON_LD]} />
       <a className="skip-link" href="#board">
         本文へスキップ
       </a>

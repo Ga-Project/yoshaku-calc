@@ -1,0 +1,198 @@
+/* 用尺早見表ページの体裁。
+ *
+ * トップの主役は「製図台の上の裁断図」だが、こちらは読み物・参照表なので
+ * 主役を「紙（型紙の説明書）」に置き換える。方眼の地・藍のアクセント・明朝の
+ * 見出しという製品の顔（theme.css）はそのまま引き継ぎ、部品だけを足す。
+ * 色は globals.css / theme.css のトークンだけを使い、生の色値は書かない。
+ */
+
+/* 銘板のロゴをトップへのリンクにしたときの見た目（下線を出さず、色は本文のまま）。 */
+.plate-home {
+  display: inline-block;
+  text-decoration: none;
+}
+.plate-home:hover .mark,
+.plate-home:focus-visible .mark {
+  color: var(--accent-hover);
+}
+
+/* ── パンくず ───────────────────────────────────────── */
+.crumbs {
+  margin: var(--sp-4) 0 var(--sp-6);
+  font-size: var(--fs-xs);
+}
+.crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  color: var(--text-dim);
+}
+.crumbs li + li::before {
+  content: "／";
+  margin-inline-end: var(--sp-2);
+  color: var(--border-strong);
+}
+.crumbs a {
+  color: var(--text-dim);
+}
+.crumbs [aria-current="page"] {
+  color: var(--text-soft);
+}
+
+/* ── 紙面 ───────────────────────────────────────────── */
+/* 表を読ませる面なので、行長を抑えて視線の戻りを短くする。 */
+.paper {
+  max-width: 46rem;
+  margin-inline: auto;
+}
+.paper-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 5vw, var(--fs-xl));
+  line-height: var(--lh-tight);
+  letter-spacing: 0.02em;
+  color: var(--text);
+  margin: 0 0 var(--sp-4);
+}
+.paper-title .mark {
+  color: var(--accent);
+}
+.paper-lead {
+  color: var(--text-soft);
+  margin: 0 0 var(--sp-6);
+}
+.paper-note {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  margin: 0 0 var(--sp-4);
+}
+.paper-note strong {
+  color: var(--text-soft);
+}
+
+.paper-section {
+  margin: 0 0 var(--sp-12);
+}
+.paper-section h2,
+.paper-siblings h2,
+.paper-cta h2 {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  line-height: var(--lh-snug);
+  color: var(--text);
+  margin: 0 0 var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── 用尺表 ─────────────────────────────────────────── */
+/* 主役は m の数字。cm は確認用の副次情報として一段落とす。 */
+.yardage-table {
+  min-width: 30rem;
+}
+.yardage-table thead th small {
+  display: block;
+  font-weight: var(--fw-normal);
+  letter-spacing: 0;
+  color: var(--text-dim);
+}
+.yardage-table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.yardage-m {
+  display: block;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  color: var(--text);
+  line-height: 1.15;
+}
+.yardage-table td small {
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+}
+.yardage-warn {
+  margin-top: var(--sp-1);
+}
+
+/* 行から裁断図へ飛ぶリンク。押せる面を 44px 確保する。 */
+.yardage-open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--sp-2);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+/* ── 衣服別カード ───────────────────────────────────── */
+.yardage-cards {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.yardage-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  height: 100%;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-decoration: none;
+  transition: border-color var(--transition);
+}
+.yardage-card:hover,
+.yardage-card:focus-visible {
+  border-color: var(--accent);
+}
+.yardage-card-title {
+  font-weight: var(--fw-bold);
+  color: var(--accent);
+}
+.yardage-card-desc {
+  font-size: var(--fs-sm);
+  color: var(--text-soft);
+  text-decoration: none;
+}
+
+/* ── 計算機への導線 ─────────────────────────────────── */
+.paper-cta {
+  margin: 0 0 var(--sp-12);
+  padding: var(--sp-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.paper-cta p {
+  color: var(--text-soft);
+  margin: 0 0 var(--sp-4);
+}
+
+/* ── ほかの衣服への導線 ─────────────────────────────── */
+.paper-siblings ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.paper-siblings li a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 40rem) {
+  .paper-cta {
+    padding: var(--sp-4);
+  }
+}

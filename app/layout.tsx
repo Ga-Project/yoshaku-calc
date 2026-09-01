@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import "./theme.css";
-import { FAQ } from "./Guide";
+import JsonLd from "./JsonLd";
 import { SITE_URL } from "./site";
 
 const TITLE = "用尺カルク｜衣服別の必要生地量（用尺）計算ツール";
@@ -26,44 +26,25 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: TITLE, description: DESC },
 };
 
-// 構造化データ。ツール本体（WebApplication）と、ページ内の FAQ を検索エンジンに伝える。
-// FAQ は Guide.tsx の表示内容と同じ配列から生成し、表示と構造化データが食い違わないようにする。
-const JSON_LD = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebApplication",
-      name: "用尺カルク",
-      url: SITE_URL,
-      description: DESC,
-      applicationCategory: "UtilitiesApplication",
-      operatingSystem: "Any",
-      inLanguage: "ja",
-      offers: { "@type": "Offer", price: "0", priceCurrency: "JPY" },
-    },
-    {
-      "@type": "FAQPage",
-      mainEntity: FAQ.map((item) => ({
-        "@type": "Question",
-        name: item.q,
-        acceptedAnswer: { "@type": "Answer", text: item.a },
-      })),
-    },
-  ],
+// 構造化データ（サイト全体で真であるものだけ）。
+// ページ固有のもの（トップの FAQPage、早見表のパンくず等）は各ページ側で出す。
+// ルートレイアウトに置くと、その内容を表示していないページにも出てしまうため。
+const SITE_JSON_LD = {
+  "@type": "WebApplication",
+  name: "用尺カルク",
+  url: SITE_URL,
+  description: DESC,
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "Any",
+  inLanguage: "ja",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "JPY" },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ja">
       <body>
-        <script
-          type="application/ld+json"
-          // `<` をエスケープして、FAQ 本文に将来 `</script>` 相当が混ざっても
-          // script 要素が途中で閉じられないようにする。
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c"),
-          }}
-        />
+        <JsonLd nodes={[SITE_JSON_LD]} />
         {/* analytics: GoatCounter（cookieless・公開タグは秘密ではない公開コード） */}
         <script
           data-goatcounter="https://ga-project.goatcounter.com/count"
