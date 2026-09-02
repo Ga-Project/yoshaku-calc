@@ -9,7 +9,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "../../JsonLd";
 import { SITE_URL } from "../../site";
-import { GUIDES, buildTable, getGuide, type BuiltTable } from "../presets";
+import {
+  GUIDES,
+  LINK_WIDTH,
+  axisSpanMeters,
+  buildTable,
+  getGuide,
+} from "../presets.mjs";
+// presets.mjs の JSDoc @typedef は allowJs で型として読める。
+import type { BuiltTable } from "../presets.mjs";
 import { Crumbs, Footer, Plate, Sheet } from "../Chrome";
 import "../yardage.css";
 
@@ -55,6 +63,12 @@ export default function GarmentYardagePage({ params }: Params) {
   if (!guide) return null;
 
   const tables = guide.axes.map((axis) => buildTable(guide, axis));
+  // 数値を含む注記は表から導出する（手書きすると同じページの表と食い違う）。
+  const derived =
+    guide.derivedTips?.({
+      axisSpan: (key: string) => axisSpanMeters(guide, key),
+      m: (v: number) => `${v.toFixed(1)}m`,
+    }) ?? [];
   const title = `${guide.searchName}の用尺早見表`;
   const path = `yardage/${guide.slug}/`;
 
@@ -96,7 +110,7 @@ export default function GarmentYardagePage({ params }: Params) {
         <section className="paper-section" aria-labelledby="tips-head">
           <h2 id="tips-head">{guide.searchName}で気をつけたいこと</h2>
           <ul className="guide-list">
-            {guide.tips.map((tip) => (
+            {[...derived, ...guide.tips].map((tip) => (
               <li key={tip}>{tip}</li>
             ))}
             <li>
@@ -113,7 +127,7 @@ export default function GarmentYardagePage({ params }: Params) {
             必要な長さと裁断の取り方を図で確認できます。
           </p>
           <Link className="btn btn-primary" href={`/?g=${guide.slug}`}>
-            {guide.searchName}を計算機で開く
+            {guide.searchName}の裁断図をつくる
           </Link>
         </section>
 
@@ -143,9 +157,15 @@ function YardageTable({ table }: { table: BuiltTable }) {
       <p className="paper-note">{table.fixedNote}（10cm 単位に切り上げた購入の目安）。</p>
 
       {/* 横スクロール領域はキーボードでも送れるよう、フォーカス可能な region にする */}
-      <div className="guide-table-wrap" tabIndex={0} role="region" aria-label={table.caption}>
+      {/* 横スクロール領域はキーボードでも送れるよう、フォーカス可能な region にする。
+          名前は見出しを参照させ、同じ文言を読み上げで重複させない。 */}
+      <div
+        className="guide-table-wrap"
+        tabIndex={0}
+        role="region"
+        aria-labelledby={headingId(table.caption)}
+      >
         <table className="guide-table yardage-table">
-          <caption className="sr-only">{table.caption}</caption>
           <thead>
             <tr>
               <th scope="col">{table.rowHeader}</th>
@@ -156,8 +176,8 @@ function YardageTable({ table }: { table: BuiltTable }) {
                 </th>
               ))}
               <th scope="col">
-                <span className="sr-only">計算機で開く</span>
-                <span aria-hidden="true">図で見る</span>
+                裁断図
+                <small>生地幅 {LINK_WIDTH}cm</small>
               </th>
             </tr>
           </thead>
@@ -165,19 +185,28 @@ function YardageTable({ table }: { table: BuiltTable }) {
             {table.rows.map((row) => (
               <tr key={row.label}>
                 <th scope="row">{row.label}</th>
-                {row.cells.map((cell) => (
-                  <td key={cell.fabricWidth} className="tabular">
-                    <span className="yardage-m">{cell.totalM.toFixed(1)}m</span>
-                    <small>{cell.totalCm}cm</small>
-                    {cell.widthShortage && (
-                      <span className="badge badge-warn yardage-warn">幅不足</span>
-                    )}
-                  </td>
-                ))}
+                {row.cells.map((cell) =>
+                  cell.widthShortage ? (
+                    // パーツがこの幅に収まらない条件。長さの数字を出すと、はぎ合わせ代を
+                    // 含まない値を「これだけ買えば足りる」と読まれるので数値は出さない。
+                    <td key={cell.fabricWidth} className="yardage-na">
+                      <span aria-hidden="true">—</span>
+                      <span className="badge badge-warn yardage-warn">幅が足りない</span>
+                      <span className="sr-only">この生地幅では裁てません</span>
+                    </td>
+                  ) : (
+                    <td key={cell.fabricWidth} className="tabular">
+                      <span className="yardage-m">{cell.totalM.toFixed(1)}m</span>
+                      <small>{cell.totalCm}cm</small>
+                    </td>
+                  ),
+                )}
                 <td>
                   <Link className="yardage-open" href={`/${row.query}`}>
                     裁断図
-                    <span className="sr-only">（{row.label}の条件で計算機を開く）</span>
+                    <span className="sr-only">
+                      （{row.label}・生地幅{LINK_WIDTH}cm）
+                    </span>
                   </Link>
                 </td>
               </tr>
@@ -188,8 +217,9 @@ function YardageTable({ table }: { table: BuiltTable }) {
 
       {hasShortage && (
         <p className="paper-note">
-          「幅不足」は、そのサイズのパーツが二つ折りにした生地の幅に収まらないことを表します。
-          より広い生地を選ぶか、はぎ合わせを前提に型紙を割る必要があります。
+          「幅が足りない」は、そのサイズのパーツが二つ折りにした生地の幅に収まらず、
+          その幅では裁てないことを表します。より広い生地を選ぶか、はぎ合わせを前提に
+          型紙を割ってください。はぎ合わせに必要な追加分は表に含めていません。
         </p>
       )}
     </section>

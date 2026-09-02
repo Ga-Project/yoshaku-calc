@@ -33,20 +33,34 @@
 .crumbs li + li::before {
   content: "／";
   margin-inline-end: var(--sp-2);
-  color: var(--border-strong);
-}
-.crumbs a {
+  /* 区切りは装飾だが、border 系だと地に対して 1.5:1 で事実上見えない。
+   * 補助文と同じ濃さにして、階層の切れ目が読み取れるようにする。 */
   color: var(--text-dim);
 }
+/* 押せるものを押せないものより強くする（逆転していた）。 */
+.crumbs a {
+  color: var(--accent);
+}
 .crumbs [aria-current="page"] {
-  color: var(--text-soft);
+  color: var(--text-dim);
 }
 
 /* ── 紙面 ───────────────────────────────────────────── */
-/* 表を読ませる面なので、行長を抑えて視線の戻りを短くする。 */
+/* 表を読ませる面なので、行長を抑えて視線の戻りを短くする。
+ * 幅は .sheet-paper 側で決め、銘板・パンくず・本文・フッターを1つの軸に揃える
+ * （.paper だけ内側で中央寄せすると、上下の要素と左端が 150px ずれる）。 */
+.sheet-paper {
+  max-width: 50rem;
+}
 .paper {
-  max-width: 46rem;
-  margin-inline: auto;
+  max-width: 100%;
+}
+
+/* 横スクロール領域の中に position:absolute な .sr-only があるため、包含ブロックを
+ * この要素にしないと overflow のクリップから抜け、ページ全体の横スクロールを生む
+ * （375px で 68px はみ出す退行が実測された）。 */
+.guide-table-wrap {
+  position: relative;
 }
 .paper-title {
   font-family: var(--font-display);
@@ -92,6 +106,10 @@
 .yardage-table {
   min-width: 30rem;
 }
+.yardage-table thead th {
+  /* 「生地幅 110cm」で折り返すと列ごとに行数がずれて比較しにくい。1行に保つ。 */
+  white-space: nowrap;
+}
 .yardage-table thead th small {
   display: block;
   font-weight: var(--fw-normal);
@@ -100,21 +118,31 @@
 }
 .yardage-table td {
   white-space: nowrap;
-  vertical-align: middle;
+  /* 行内で m の数字が同じ高さに揃うよう上端合わせにする。中央合わせだと
+   * 「幅不足」の印が付いたセルだけ背が高くなり、その行の比較がしにくくなる。 */
+  vertical-align: top;
 }
+/* トップの .stage-num（明朝・藍）と同じ言語で見せる。表の中なので彩度は
+ * 落とし、書体と字面でトップの用尺表示と血縁が分かるようにする。 */
 .yardage-m {
   display: block;
+  font-family: var(--font-display);
   font-size: var(--fs-md);
   font-weight: var(--fw-bold);
   color: var(--text);
+  letter-spacing: 0.01em;
   line-height: 1.15;
 }
 .yardage-table td small {
+  display: block;
   color: var(--text-dim);
   font-size: var(--fs-xs);
 }
+/* 幅不足の印。cm の値と同じ行に流れると隣の列に食い込んで読み違えるので、
+ * 数値の下に独立した行として置く。 */
 .yardage-warn {
-  margin-top: var(--sp-1);
+  display: inline-flex;
+  margin-top: var(--sp-2);
 }
 
 /* 行から裁断図へ飛ぶリンク。押せる面を 44px 確保する。 */
@@ -125,6 +153,13 @@
   padding-inline: var(--sp-2);
   font-size: var(--fs-sm);
   white-space: nowrap;
+}
+
+/* 行見出しから各ページへ飛ぶリンク。表内の他のリンクと当たり判定を揃える。 */
+.yardage-table tbody th a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 /* ── 衣服別カード ───────────────────────────────────── */
@@ -142,7 +177,10 @@
   gap: var(--sp-2);
   height: 100%;
   padding: var(--sp-4);
-  border: 1px solid var(--border);
+  /* カードを識別させているのは藍の見出し（対地 7.3:1）と focus-visible の
+   * アウトラインで、この枠線ではない。ただし --border は対地 1.2:1 で輪郭として
+   * 機能しないため、面の区切りが分かる --border-strong を既定に置く。 */
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);
   text-decoration: none;
@@ -194,5 +232,51 @@
 @media (max-width: 40rem) {
   .paper-cta {
     padding: var(--sp-4);
+  }
+}
+
+/* この生地幅では裁てない条件。長さの数字を出さないので、空欄に見えないよう
+ * 「—」と理由の印を置く。 */
+.yardage-na {
+  color: var(--text-dim);
+  white-space: nowrap;
+  vertical-align: top;
+}
+.yardage-na .yardage-warn {
+  display: flex;
+  margin-top: var(--sp-2);
+}
+
+/* 深いリンクがどの生地幅で開くかを列見出しに添える。 */
+.yardage-table thead th small {
+  white-space: nowrap;
+}
+
+/* トップの種別ボタンと同じ絵文字を添え、同一の5種別だと分かるようにする。 */
+.yardage-emoji {
+  margin-inline-end: var(--sp-2);
+  font-style: normal;
+}
+
+/* C-8: 紙に出して生地店へ持ち出す使い方が主。画面用のナビは落とし、
+ * 免責（実際の型紙・柄合わせで増減する）は必ず紙に残す。 */
+@media print {
+  .crumbs,
+  .paper-cta,
+  .paper-siblings,
+  .yardage-open,
+  .skip-link {
+    display: none !important;
+  }
+  .sheet-footer {
+    display: block !important;
+    color: #000;
+  }
+  .paper-title,
+  .paper-section h2 {
+    break-after: avoid;
+  }
+  .guide-table-wrap {
+    overflow: visible !important;
   }
 }

@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "../JsonLd";
 import { SITE_URL } from "../site";
-import { GUIDES, buildTable } from "./presets";
+import { getGarment } from "@/lib/calc.mjs";
+import { GUIDES, buildOverview } from "./presets.mjs";
 import { Crumbs, Footer, Plate, Sheet } from "./Chrome";
 import "./yardage.css";
 
@@ -32,24 +33,13 @@ export const metadata: Metadata = {
 export default function YardageIndex() {
   // 代表寸法（各種別の base）での比較。種別ごとに寸法の意味が違うので、
   // 「その種別の標準的な一着」を横に並べる表として読む。
-  const overview = GUIDES.map((guide) => {
-    const axis = guide.axes[0];
-    if (!axis) throw new Error(`no axis: ${guide.slug}`);
-    const table = buildTable(guide, axis);
-    // base と同じ値の行 = その種別の代表条件。
-    // 見つからないまま別の行を出すと「標準的な寸法」と偽った表になるので、
-    // フォールバックせずビルドを落とす（定義のズレを本番へ流さない）。
-    const baseValue = guide.base[axis.key];
-    const row = table.rows.find((r) => r.label.startsWith(`${baseValue}cm`));
-    if (!row) {
-      throw new Error(
-        `代表行が見つからない: ${guide.slug}.${axis.key}=${baseValue} が axes[0].rows に無い`,
-      );
-    }
-    return { guide, row, widths: table.widths };
-  });
+  // 代表行の照合・生地幅ごとの開き（spread）はすべて presets 側で実測する。
+  const { rows: overview, widths, spread } = buildOverview();
 
-  const widths = overview[0]?.widths ?? [];
+  // 「どれくらい違うか」は表から導く。文章に倍率を手で書くと、寸法の刻みを
+  // 変えた瞬間に同じページの表と食い違う。
+  const minRatio = Math.min(...spread.map((s) => s.ratio));
+  const maxRatio = Math.max(...spread.map((s) => s.ratio));
 
   const itemList = {
     "@type": "ItemList",
@@ -87,16 +77,17 @@ export default function YardageIndex() {
         <section className="paper-section" aria-labelledby="overview-head">
           <h2 id="overview-head">代表的な一着で比べる</h2>
           <p className="paper-note">
-            各種別の標準的な寸法での必要量です。同じ生地幅でも、衣服によって必要な長さは倍以上違います。
+            各種別の標準的な寸法での必要量です。同じ生地幅でも、衣服によって
+            {minRatio.toFixed(1)}〜{maxRatio.toFixed(1)} 倍の開きがあります。
+            固定した寸法は衣服ごとのページに書いてあります。
           </p>
           <div
             className="guide-table-wrap"
             tabIndex={0}
             role="region"
-            aria-label="衣服別の用尺比較"
+            aria-labelledby="overview-head"
           >
             <table className="guide-table yardage-table">
-              <caption className="sr-only">衣服別・生地幅別の必要な生地の長さ</caption>
               <thead>
                 <tr>
                   <th scope="col">衣服</th>
@@ -108,17 +99,29 @@ export default function YardageIndex() {
                 </tr>
               </thead>
               <tbody>
-                {overview.map(({ guide, row }) => (
+                {overview.map(({ guide, cells }) => (
                   <tr key={guide.slug}>
                     <th scope="row">
-                      <Link href={`/yardage/${guide.slug}/`}>{guide.searchName}</Link>
+                      <Link href={`/yardage/${guide.slug}/`}>
+                        <span className="yardage-emoji" aria-hidden="true">
+                          {getGarment(guide.slug)?.emoji}
+                        </span>
+                        {guide.searchName}
+                      </Link>
                     </th>
-                    {row.cells.map((cell) => (
-                      <td key={cell.fabricWidth} className="tabular">
-                        <span className="yardage-m">{cell.totalM.toFixed(1)}m</span>
-                        <small>{cell.totalCm}cm</small>
-                      </td>
-                    ))}
+                    {cells.map((cell) =>
+                      cell.widthShortage ? (
+                        <td key={cell.fabricWidth} className="yardage-na">
+                          <span aria-hidden="true">—</span>
+                          <span className="sr-only">この生地幅では裁てません</span>
+                        </td>
+                      ) : (
+                        <td key={cell.fabricWidth} className="tabular">
+                          <span className="yardage-m">{cell.totalM.toFixed(1)}m</span>
+                          <small>{cell.totalCm}cm</small>
+                        </td>
+                      ),
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -132,7 +135,12 @@ export default function YardageIndex() {
             {GUIDES.map((guide) => (
               <li key={guide.slug}>
                 <Link className="yardage-card" href={`/yardage/${guide.slug}/`}>
-                  <span className="yardage-card-title">{guide.searchName}の用尺早見表</span>
+                  <span className="yardage-card-title">
+                    <span className="yardage-emoji" aria-hidden="true">
+                      {getGarment(guide.slug)?.emoji}
+                    </span>
+                    {guide.searchName}の用尺早見表
+                  </span>
                   <span className="yardage-card-desc">{guide.lead}</span>
                 </Link>
               </li>
@@ -146,7 +154,7 @@ export default function YardageIndex() {
             型紙の実寸を入れると、必要な長さと裁断の取り方を図で確認できます。
           </p>
           <Link className="btn btn-primary" href="/">
-            用尺カルクで計算する
+            裁断図をつくる
           </Link>
         </section>
       </main>

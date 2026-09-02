@@ -51,7 +51,7 @@ export function Sheet({ children }: { children: ReactNode }) {
       <a className="skip-link" href="#main">
         本文へスキップ
       </a>
-      <div className="sheet">{children}</div>
+      <div className="sheet sheet-paper">{children}</div>
     </>
   );
 }

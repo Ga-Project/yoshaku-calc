@@ -72,6 +72,15 @@
      * globals の意図どおり暗い前景に戻す（dark 6.1:1 / light は #fff のまま 7.6:1）。 */
     --accent-fg: hsl(var(--neutral-hue) 40% 8%);
 
+    /* semantic の前景も accent と同じカスケード事故を起こしている。
+     * globals.css の dark 層は --warn-tint / --ok-tint / --err-tint（地）を暗く
+     * 落としているが、前景の --warn / --ok / --err は light のままの濃色で、
+     * 暗い地に濃い文字が乗って AA を割る（実測 warn 2.64:1 / ok 3.64:1 / err 3.08:1）。
+     * 夜側の地に合わせて前景を持ち上げる（実測 warn 7.01:1 / ok 7.62:1 / err 4.91:1）。 */
+    --warn: hsl(26 90% 66%);
+    --ok: hsl(159 60% 66%);
+    --err: hsl(4 85% 66%);
+
     --grid-line: hsl(224 60% 70% / 0.08);
 
     /* 裁断図のパーツ配色（暗背景で見えるよう明度を上げる） */

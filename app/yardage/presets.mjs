@@ -6,50 +6,47 @@
 //
 // このファイルが持つのは「どの条件を並べて見せるか」だけ:
 //   base = 固定する寸法 / axes = 1 つだけ動かす寸法とその段階。
+//
+// .mjs にしているのは node:test から実体を import して検証するため。TypeScript の
+// ままだとテストがソース文字列を正規表現で読むしかなく、整形を変えただけで
+// 無言で通ってしまう（実際それで本文と表の食い違いを 3 件見逃した）。
 
-import { FABRIC_WIDTHS, computeYardage, getGarment } from "@/lib/calc.mjs";
+// node:test から素の ESM として読めるよう、パスエイリアス(@/)ではなく相対で読む。
+import { FABRIC_WIDTHS, computeYardage, getGarment } from "../../lib/calc.mjs";
 
-/** 表の 1 行が表す寸法の値。 */
-export type AxisRow = {
-  /** 動かす入力の値(cm)。 */
-  value: number;
-  /** 行見出し（例: "88cm"）。 */
-  label: string;
-};
+/**
+ * @typedef {Object} AxisRow
+ * @property {number} value 動かす入力の値(cm)
+ * @property {string} label 行見出し（例: "88cm"）
+ */
 
-/** 1 つの表 = 「1 つの寸法だけ動かし、生地幅 3 種を横に並べる」。 */
-export type Axis = {
-  /** 動かす入力キー（garment.inputs の key と一致させる）。 */
-  key: string;
-  /** 表のキャプション。 */
-  caption: string;
-  /** 行見出し列のラベル（例: "バスト"）。 */
-  rowHeader: string;
-  /** 固定した寸法の説明。 */
-  fixedNote: string;
-  rows: AxisRow[];
-};
+/**
+ * 1 つの表 = 「1 つの寸法だけ動かし、生地幅 3 種を横に並べる」。
+ * @typedef {Object} Axis
+ * @property {string} key 動かす入力キー（garment.inputs の key と一致させる）
+ * @property {string} caption 表のキャプション
+ * @property {string} rowHeader 行見出し列のラベル（例: "バスト"）
+ * @property {string} fixedNote 固定した寸法の説明
+ * @property {AxisRow[]} rows
+ */
 
-/** 1 ページぶんの定義。 */
-export type GarmentGuide = {
-  /** URL スラッグ = 計算機の garment id と同じにして、深いリンクを素直に作る。 */
-  slug: string;
-  /** 検索で使われる言い回し（title/h1 に使う）。 */
-  searchName: string;
-  /** ページの説明文（meta description）。 */
-  description: string;
-  /** 導入文。 */
-  lead: string;
-  /** 何を裁つのか（パーツ構成の説明）。 */
-  pieces: string;
-  /** 固定する寸法。 */
-  base: Record<string, number>;
-  axes: Axis[];
-  /** この衣服ならではの注意。 */
-  tips: string[];
-};
+/**
+ * 1 ページぶんの定義。
+ * @typedef {Object} GarmentGuide
+ * @property {string} slug URL スラッグ = 計算機の garment id
+ * @property {string} searchName 検索で使われる言い回し（title/h1 に使う）
+ * @property {string} description meta description
+ * @property {string} lead 導入文
+ * @property {string} pieces 何を裁つのか
+ * @property {Record<string, number>} base 固定する寸法
+ * @property {Axis[]} axes
+ * @property {string[]} tips この衣服ならではの注意（数字を含めない）
+ * @property {((h: {axisSpan: (key: string) => {min: number, max: number}, m: (v: number) => string}) => string[])} [derivedTips]
+ *   表から導出して出す注記。数値を含む主張はこちらで書き、手書きしない
+ */
 
-export const GUIDES: GarmentGuide[] = [
+/** @type {GarmentGuide[]} */
+export const GUIDES = [
   {
     slug: "shirt",
     searchName: "シャツ・ブラウス",
@@ -87,15 +84,22 @@ export const GUIDES: GarmentGuide[] = [
     ],
     tips: [
       "衿と見返しは小さなパーツなので、身頃や袖の脇にできた空きに収まることが多く、そのぶん用尺には表れにくくなります。",
-      "袖の有無は用尺に大きく効きます。同じ着丈でも、ノースリーブと長袖では 1m 前後変わります。半袖で足りるなら、その差がそのまま生地代の差になります。",
+      "半袖で足りるなら、袖のぶんの差がそのまま生地代の差になります。",
     ],
+    // 数字を含む注記は表から導出する。手で書くと同じページの表と食い違う。
+    derivedTips: (h) => {
+      const d = h.axisSpan("sleeveLen");
+      return [
+        `袖の有無は用尺に大きく効きます。この表のノースリーブと長袖の差は、生地幅によって ${h.m(d.min)}〜${h.m(d.max)} です。`,
+      ];
+    },
   },
   {
     slug: "dress",
     searchName: "ワンピース",
     description:
       "ワンピースに必要な生地の長さ（用尺）を、総丈・バストと生地幅 90／110／140cm の組み合わせで一覧にした早見表。生地を買う前の見積りに。",
-    lead: "ワンピースは身頃を通し丈で裁つため、必要な長さがほぼそのまま総丈に比例して伸びます。5 種のなかで最も生地を使う衣服です。",
+    lead: "ワンピースは身頃を通し丈で裁つため、必要な長さに総丈がそのまま効きます。丈が長い一着ほど、生地幅の選び方で差が開きます。",
     pieces:
       "前身頃・後身頃を総丈のまま「わ」で 1 枚ずつ、袖がある場合は 2 枚。袖丈 0 でノースリーブになります。",
     base: { bodyLen: 105, sleeveLen: 24, bust: 88 },
@@ -126,7 +130,7 @@ export const GUIDES: GarmentGuide[] = [
       },
     ],
     tips: [
-      "丈を伸ばしたときの効き方は生地幅で変わります。前身頃と後身頃が縦に積まれる 90・110cm 幅では、丈を 15cm 伸ばすと必要な長さは 2 枚ぶんの 30cm 増えます。身頃が横に並ぶ 140cm 幅なら、増えるのは伸ばした 15cm ぶんだけです。",
+      "丈を伸ばしたときの効き方は生地幅で変わります。前身頃と後身頃が縦に積まれる 90・110cm 幅では、丈を 15cm 伸ばすと必要な長さは 2 枚ぶんの 30cm 増えます。身頃が横に並ぶ 140cm 幅では増えるのは伸ばしたぶんだけで、10cm 単位に丸めた表では 10〜20cm の増加として現れます。",
       "身頃が 2 枚とも縦に積まれる配置になると、生地幅を広げても必要な長さは減りません。140cm 幅の恩恵が出るのは、身頃を横に 2 枚並べられるサイズのときです。",
     ],
   },
@@ -165,7 +169,7 @@ export const GUIDES: GarmentGuide[] = [
       },
     ],
     tips: [
-      "前後スカートが横に並べば、必要な長さはスカート丈 1 枚ぶんで済みます。並ばなければ 2 枚ぶん積むことになり、必要な長さはおよそ倍になります。この段差が生地幅を選ぶ意味です。",
+      "前後スカートが横に並べば、必要な長さはスカート丈 1 枚ぶんで済みます。並ばなければ 2 枚ぶん積むことになります。ヒップ別の表で 90cm 幅と 110cm 幅の差が大きく開いているところが、その切り替わりです。",
       "ギャザーやフレアを入れる型紙は、裾に向かって広がるぶん幅を食います。表の数字は直線的な型紙を前提とした下限とお考えください。",
     ],
   },
@@ -213,7 +217,7 @@ export const GUIDES: GarmentGuide[] = [
     searchName: "ジャケット",
     description:
       "ジャケット（表地）に必要な生地の長さ（用尺）を、バスト・着丈と生地幅 90／110／140cm の組み合わせで一覧にした早見表。ウール地・スーツ地の見積りに。",
-    lead: "ジャケットは縫い代とゆとりが大きく、身頃 1 枚あたりの幅を最も食う衣服です。90cm 幅では身頃が収まらないこともあります。",
+    lead: "ジャケットは縫い代とゆとりが大きく、身頃 1 枚が生地の幅を大きく取ります。サイズによっては 90cm 幅に身頃が収まりません。",
     pieces:
       "前身頃・後身頃を「わ」で 1 枚ずつ、袖を 2 枚、衿と見返しを 1 組。ここでの用尺は表地のみで、裏地・芯地は別に必要です。",
     base: { bodyLen: 64, sleeveLen: 58, bust: 96 },
@@ -251,36 +255,43 @@ export const GUIDES: GarmentGuide[] = [
   },
 ];
 
-/** 表の 1 セル = ある生地幅での結果。 */
-export type Cell = {
-  fabricWidth: number;
-  totalCm: number;
-  totalM: number;
-  /** パーツが生地幅に収まらない（はぎ合わせが要る）。 */
-  widthShortage: boolean;
-};
+/**
+ * 表の 1 セル = ある生地幅での結果。
+ * @typedef {Object} Cell
+ * @property {number} fabricWidth
+ * @property {number} totalCm
+ * @property {number} totalM
+ * @property {boolean} widthShortage パーツが生地幅に収まらない（この幅では裁てない）
+ */
 
-/** 表の 1 行 = 行見出し + 生地幅ごとのセル + 計算機への深いリンク。 */
-export type TableRow = {
-  label: string;
-  cells: Cell[];
-  /** その条件を計算機で開くクエリ文字列（先頭の ? を含む）。 */
-  query: string;
-};
+/**
+ * 表の 1 行 = 行見出し + 生地幅ごとのセル + 計算機への深いリンク。
+ * @typedef {Object} TableRow
+ * @property {number} value この行が表す寸法の値(cm)。代表行の照合に使う（表示ラベルに依存させない）
+ * @property {string} label 行見出し
+ * @property {Cell[]} cells
+ * @property {string} query その条件を計算機で開くクエリ文字列（先頭の ? を含む）
+ */
 
-export type BuiltTable = {
-  caption: string;
-  rowHeader: string;
-  fixedNote: string;
-  widths: number[];
-  rows: TableRow[];
-};
+/**
+ * @typedef {Object} BuiltTable
+ * @property {string} caption
+ * @property {string} rowHeader
+ * @property {string} fixedNote
+ * @property {number[]} widths
+ * @property {TableRow[]} rows
+ */
 
-/** 深いリンクを開くときの既定の生地幅（店頭で最も一般的な標準幅）。 */
-const LINK_WIDTH = 110;
+/** 深いリンクを開くときの生地幅（店頭で最も一般的な標準幅）。表の見出しにも明記する。 */
+export const LINK_WIDTH = 110;
 
-/** 計算機（トップページ）でその条件を開くためのクエリ。 */
-function queryFor(slug: string, values: Record<string, number>, width: number) {
+/**
+ * 計算機（トップページ）でその条件を開くためのクエリ。
+ * @param {string} slug
+ * @param {Record<string, number>} values
+ * @param {number} width
+ */
+function queryFor(slug, values, width) {
   const params = new URLSearchParams();
   params.set("g", slug);
   params.set("w", String(width));
@@ -291,17 +302,20 @@ function queryFor(slug: string, values: Record<string, number>, width: number) {
 /**
  * 表を組み立てる。数値はすべて computeYardage() の実出力。
  * 種別 id や入力キーが計算エンジンとズレていればここで例外になり、ビルドが落ちる。
+ * @param {GarmentGuide} guide
+ * @param {Axis} axis
+ * @returns {BuiltTable}
  */
-export function buildTable(guide: GarmentGuide, axis: Axis): BuiltTable {
+export function buildTable(guide, axis) {
   const garment = getGarment(guide.slug);
   if (!garment) throw new Error(`unknown garment id: ${guide.slug}`);
   if (!garment.inputs.some((i) => i.key === axis.key)) {
     throw new Error(`unknown input key: ${guide.slug}.${axis.key}`);
   }
 
-  const rows: TableRow[] = axis.rows.map((row) => {
+  const rows = axis.rows.map((row) => {
     const values = { ...guide.base, [axis.key]: row.value };
-    const cells: Cell[] = FABRIC_WIDTHS.map((w) => {
+    const cells = FABRIC_WIDTHS.map((w) => {
       const res = computeYardage(guide.slug, w, values);
       if (!res) throw new Error(`compute failed: ${guide.slug}@${w}`);
       return {
@@ -311,7 +325,12 @@ export function buildTable(guide: GarmentGuide, axis: Axis): BuiltTable {
         widthShortage: res.widthShortage,
       };
     });
-    return { label: row.label, cells, query: queryFor(guide.slug, values, LINK_WIDTH) };
+    return {
+      value: row.value,
+      label: row.label,
+      cells,
+      query: queryFor(guide.slug, values, LINK_WIDTH),
+    };
   });
 
   return {
@@ -323,7 +342,71 @@ export function buildTable(guide: GarmentGuide, axis: Axis): BuiltTable {
   };
 }
 
-/** slug から定義を引く。 */
-export function getGuide(slug: string): GarmentGuide | null {
+/**
+ * slug から定義を引く。
+ * @param {string} slug
+ * @returns {GarmentGuide | null}
+ */
+export function getGuide(slug) {
   return GUIDES.find((g) => g.slug === slug) ?? null;
+}
+
+/**
+ * 各種別の「代表的な一着」（base の条件）での用尺を、生地幅ごとに並べた比較。
+ * トップの一覧表と、そこに添える文言の両方をこの 1 か所から作る。
+ * 文章に「倍以上」等の数字を手で書かず、ここで実測した値だけを言葉にする。
+ * @returns {{ rows: {guide: GarmentGuide, cells: Cell[]}[], widths: number[],
+ *             spread: {width: number, max: number, min: number, ratio: number}[] }}
+ */
+export function buildOverview() {
+  const rows = GUIDES.map((guide) => {
+    const axis = guide.axes[0];
+    if (!axis) throw new Error(`no axis: ${guide.slug}`);
+    const table = buildTable(guide, axis);
+    // 代表行は「動かす寸法が base と同じ値」の行。表示ラベルではなく値で照合する。
+    const baseValue = guide.base[axis.key];
+    const row = table.rows.find((r) => r.value === baseValue);
+    if (!row) {
+      throw new Error(
+        `代表行が見つからない: ${guide.slug}.${axis.key}=${baseValue} が axes[0].rows に無い`,
+      );
+    }
+    return { guide, cells: row.cells };
+  });
+
+  const spread = FABRIC_WIDTHS.map((width, i) => {
+    const vals = rows.map((r) => {
+      const c = r.cells[i];
+      if (!c) throw new Error(`missing cell: ${r.guide.slug}@${width}`);
+      return c.totalM;
+    });
+    const max = Math.max(...vals);
+    const min = Math.min(...vals);
+    return { width, max, min, ratio: max / min };
+  });
+
+  return { rows, widths: [...FABRIC_WIDTHS], spread };
+}
+
+/**
+ * ある軸で「動かした寸法が最小のとき」と「最大のとき」の用尺差を、生地幅ごとに実測する。
+ * 本文で「◯m 変わります」と書くための値をここから取り、手書きしない。
+ * @param {GarmentGuide} guide
+ * @param {string} axisKey
+ * @returns {{min: number, max: number}} 差の m 表記の最小・最大
+ */
+export function axisSpanMeters(guide, axisKey) {
+  const axis = guide.axes.find((a) => a.key === axisKey);
+  if (!axis) throw new Error(`no axis ${axisKey} on ${guide.slug}`);
+  const table = buildTable(guide, axis);
+  const first = table.rows[0];
+  const last = table.rows[table.rows.length - 1];
+  if (!first || !last) throw new Error(`empty axis ${axisKey} on ${guide.slug}`);
+  const diffs = table.widths.map((_, i) => {
+    const a = first.cells[i];
+    const b = last.cells[i];
+    if (!a || !b) throw new Error(`missing cell on ${guide.slug}`);
+    return b.totalM - a.totalM;
+  });
+  return { min: Math.min(...diffs), max: Math.max(...diffs) };
 }

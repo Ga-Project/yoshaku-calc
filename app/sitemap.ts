@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "./site";
-import { GUIDES } from "./yardage/presets";
+import { GUIDES } from "./yardage/presets.mjs";
 
 // static export では out/sitemap.xml として書き出される。
 // ルートを増やしたときの入れ忘れを避けるため、早見表は GUIDES から機械的に生成する。
