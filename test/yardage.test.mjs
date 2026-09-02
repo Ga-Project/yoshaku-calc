@@ -19,6 +19,7 @@ import {
   axisSpanMeters,
   buildOverview,
   buildTable,
+  findRepresentativeRow,
   getGuide,
 } from "../app/yardage/presets.mjs";
 
@@ -205,5 +206,26 @@ test("ワンピースの導入文は最上級を主張しない（ジャケッ�
   assert.ok(
     !/最も生地を使う/.test(dress.guide.lead),
     "ワンピースの lead が『最も生地を使う』と主張していない",
+  );
+});
+
+test("代表行は値で選ぶ（表示ラベルの前方一致では取り違える条件で確かめる）", () => {
+  // 実データでは base 値とラベルがたまたま一致するため、前方一致実装でも同じ行に
+  // 当たってしまい回帰を検出できない。ここでは前方一致なら必ず誤る合成データを使う。
+  const rows = [
+    { value: 104, label: "104cm", cells: [], query: "" },
+    { value: 10, label: "10cm", cells: [], query: "" },
+  ];
+  assert.equal(findRepresentativeRow(rows, 10, "synthetic").value, 10);
+  // 前方一致だと "104cm".startsWith("10") が真になり 104 の行を拾ってしまう。
+  assert.notEqual(
+    rows.find((r) => r.label.startsWith("10")).value,
+    10,
+    "この合成データでは前方一致が誤ることを確認（テスト自体の妥当性）",
+  );
+  assert.throws(
+    () => findRepresentativeRow(rows, 999, "synthetic"),
+    /代表行が見つからない/,
+    "見つからなければ例外にしてビルドを落とす",
   );
 });

@@ -352,6 +352,26 @@ export function getGuide(slug) {
 }
 
 /**
+ * 代表行（動かす寸法が base と同じ値の行）を選ぶ。
+ *
+ * 表示ラベルの前方一致で選ぶと、base=10 のときに "104cm" の行に当たる、といった
+ * 取り違えが起きる。ラベルは表示の都合で変わりうるので、必ず値で照合する。
+ * 見つからないまま別の行を返すと「標準的な寸法」と偽った表になるため、
+ * フォールバックせず例外にしてビルドを落とす。
+ * @param {TableRow[]} rows
+ * @param {number} baseValue
+ * @param {string} [label] エラーメッセージ用の識別子
+ * @returns {TableRow}
+ */
+export function findRepresentativeRow(rows, baseValue, label = "") {
+  const row = rows.find((r) => r.value === baseValue);
+  if (!row) {
+    throw new Error(`代表行が見つからない: ${label} の行に ${baseValue} が無い`);
+  }
+  return row;
+}
+
+/**
  * 各種別の「代表的な一着」（base の条件）での用尺を、生地幅ごとに並べた比較。
  * トップの一覧表と、そこに添える文言の両方をこの 1 か所から作る。
  * 文章に「倍以上」等の数字を手で書かず、ここで実測した値だけを言葉にする。
@@ -363,14 +383,7 @@ export function buildOverview() {
     const axis = guide.axes[0];
     if (!axis) throw new Error(`no axis: ${guide.slug}`);
     const table = buildTable(guide, axis);
-    // 代表行は「動かす寸法が base と同じ値」の行。表示ラベルではなく値で照合する。
-    const baseValue = guide.base[axis.key];
-    const row = table.rows.find((r) => r.value === baseValue);
-    if (!row) {
-      throw new Error(
-        `代表行が見つからない: ${guide.slug}.${axis.key}=${baseValue} が axes[0].rows に無い`,
-      );
-    }
+    const row = findRepresentativeRow(table.rows, guide.base[axis.key], guide.slug);
     return { guide, cells: row.cells };
   });
 
