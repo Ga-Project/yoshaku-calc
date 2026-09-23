@@ -55,38 +55,30 @@
 
   /* ── 図面枠（外周の二重枠） ── */
   .sheet{
-    position:absolute;inset:16px;border:2px solid var(--text);
-    display:flex;flex-direction:column;padding:22px 26px 24px;
+    position:absolute;inset:16px;border:2px solid var(--text);padding:22px 26px 24px;
   }
   .sheet::before{
     content:"";position:absolute;inset:6px;border:1px solid var(--border);pointer-events:none;
   }
 
-  /* ── 主張（図面の余白に書かれた注記のように） ── */
-  .lead{
-    font-family:var(--mincho);font-size:41px;line-height:1.34;letter-spacing:.02em;
-  }
-  .lead b{color:var(--accent);font-weight:600}
-
-  /* ── 反物（裁断レイアウト） ── */
+  /* ── 反物（裁断レイアウト）: 図面の field に据える ── */
   .bolt{
-    position:relative;flex:none;margin-top:20px;height:158px;background:var(--fabric);
+    position:relative;height:242px;background:var(--fabric);
     border:2px dashed var(--fabric-line); /* 裁ち線 */
-    padding:24px 16px 16px;display:flex;align-items:stretch;gap:14px;
+    padding:30px 18px 18px;display:flex;align-items:stretch;gap:14px;
   }
-  /* わ（折り山）= 二つ折りの山。製品の裁断図で唯一 accent が入る線。 */
+  /* わ（折り山）= 二つ折りの山。パーツの上辺に接する（製品の LayoutFigure と同じ）。 */
   .wa{
-    position:absolute;left:18px;right:18px;top:15px;border-top:2px dashed var(--accent);
+    position:absolute;left:18px;right:18px;top:29px;border-top:2px dashed var(--accent);
   }
   .wa span{
-    position:absolute;left:0;top:-15px;background:var(--fabric);padding:0 8px;
-    font-family:var(--mincho);font-size:24px;color:var(--accent);line-height:1;
+    position:absolute;left:0;top:-30px;background:var(--fabric);padding:0 8px;
+    font-family:var(--mincho);font-size:25px;color:var(--accent);line-height:1;
   }
   .piece{
     border:2.5px solid var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
-    border-radius:3px;display:grid;place-items:center;
     /* ラベルは中立色。色→意味は枠線と塗りが担う（製品の LayoutFigure と同じ設計） */
-    font-size:26px;color:var(--text);letter-spacing:.06em;
+    display:grid;place-items:center;font-size:27px;color:var(--text);letter-spacing:.06em;
   }
   .p-front{--c:var(--piece-front);flex:2.1}
   .p-back{--c:var(--piece-back);flex:2}
@@ -101,13 +93,23 @@
   }
   .dim .bar::before{left:0}
   .dim .bar::after{right:0}
-  .dim .txt{font-family:var(--mincho);font-size:29px;letter-spacing:.14em;line-height:1}
+  .dim .txt{font-family:var(--mincho);font-size:30px;letter-spacing:.14em;line-height:1}
 
-  /* ── 表題欄（タイトルブロック・右下） ── */
-  .block{margin-top:auto;margin-left:auto;width:560px;border:2px solid var(--text)}
+  /* ── 注記（図面の余白に書く一言）: 左下に置き、表題欄と同じ底辺で揃える ── */
+  .note{
+    position:absolute;left:28px;bottom:14px;width:498px;
+    font-family:var(--mincho);font-size:40px;line-height:1.36;letter-spacing:.02em;
+  }
+  .note b{color:var(--accent);font-weight:600}
+
+  /* ── 表題欄（タイトルブロック）: 内枠の右下隅に罫を共有して納める ── */
+  .block{
+    position:absolute;right:6px;bottom:6px;width:546px;
+    border-left:2px solid var(--text);border-top:2px solid var(--text);
+  }
   .block .row{display:flex;align-items:center;border-bottom:1px solid var(--border)}
   .block .row:last-child{border-bottom:0}
-  .brand{gap:14px;padding:10px 16px}
+  .brand{gap:14px;padding:9px 16px}
   .seal{
     width:46px;height:46px;flex:none;border:2px solid var(--accent);border-radius:10px;
     display:grid;place-items:center;font-family:var(--mincho);font-size:28px;
@@ -115,17 +117,17 @@
   }
   .brand h1{font-family:var(--mincho);font-size:41px;font-weight:600;letter-spacing:.04em;line-height:1}
   .brand h1 b{color:var(--accent);font-weight:600}
-  .sub{padding:8px 16px;font-size:22px;color:var(--text-soft);letter-spacing:.01em}
-  .widths{padding:8px 16px;gap:9px;font-size:22px;color:var(--text-soft)}
+  /* 副題は「指定すると出る」を動詞で言う＝計算する道具だと絵だけで伝わるように。
+     漢字は欧文より大きい下限が要る（500px 表示で 27px＝実効 11.3px）。 */
+  .sub{padding:8px 16px;font-size:27px;color:var(--text-soft);letter-spacing:.01em}
+  .widths{padding:8px 16px;gap:9px;font-size:24px;color:var(--text-soft)}
   .chip{
     border:1.5px solid var(--accent);color:var(--accent);border-radius:8px;
-    padding:3px 11px;font-size:24px;font-weight:600;
+    padding:2px 11px;font-size:26px;font-weight:600;
   }
-  .url{padding:8px 16px;font-size:21px;color:var(--text-soft);letter-spacing:.01em}
+  .url{padding:7px 16px;font-size:22px;color:var(--text-soft);letter-spacing:.01em}
 </style></head><body>
   <div class="sheet">
-
-    <div class="lead">布を買う前に、<br><b>必要な長さ</b>がわかる。</div>
 
     <div class="bolt">
       <div class="wa"><span>わ</span></div>
@@ -137,12 +139,14 @@
 
     <div class="dim"><span class="bar"></span><span class="txt">用尺</span><span class="bar"></span></div>
 
+    <div class="note">布を買う前に、<br><b>必要な長さ</b>がわかる。</div>
+
     <div class="block">
       <div class="row brand">
         <div class="seal">尺</div>
         <h1>用<b>尺</b>カルク</h1>
       </div>
-      <div class="row sub">衣服別 必要生地量・裁断レイアウト</div>
+      <div class="row sub">種類と生地幅を選ぶと用尺が出ます</div>
       <div class="row widths">生地幅 <span class="chip">90</span><span class="chip">110</span><span class="chip">140</span> cm</div>
       <div class="row url">ga-project.github.io/yoshaku-calc</div>
     </div>
