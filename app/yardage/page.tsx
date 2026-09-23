@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "../JsonLd";
 import { SITE_URL } from "../site";
-import { OG_IMAGE } from "../og";
+import { socialMeta } from "../og";
 import { getGarment } from "@/lib/calc.mjs";
 import { GUIDES, buildOverview } from "./presets.mjs";
 import { Crumbs, Footer, Plate, Sheet } from "./Chrome";
@@ -20,21 +20,12 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESC,
   alternates: { canonical: "/yardage/" },
-  openGraph: {
+  ...socialMeta({
     title: TITLE,
     description: DESC,
-    type: "article",
-    locale: "ja_JP",
     url: `${SITE_URL}yardage/`,
-    siteName: "用尺カルク",
-    images: [OG_IMAGE],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: TITLE,
-    description: DESC,
-    images: [OG_IMAGE.url],
-  },
+    type: "article",
+  }),
 };
 
 export default function YardageIndex() {

@@ -4,7 +4,7 @@ import "./globals.css";
 import "./theme.css";
 import JsonLd from "./JsonLd";
 import { SITE_URL } from "./site";
-import { OG_IMAGE } from "./og";
+import { socialMeta } from "./og";
 
 const TITLE = "用尺カルク｜衣服別の必要生地量（用尺）計算ツール";
 const DESC =
@@ -16,21 +16,7 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESC,
   alternates: { canonical: "/" },
-  openGraph: {
-    title: TITLE,
-    description: DESC,
-    type: "website",
-    locale: "ja_JP",
-    url: SITE_URL,
-    siteName: "用尺カルク",
-    images: [OG_IMAGE], // metadataBase 起点で絶対 URL に解決される
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: TITLE,
-    description: DESC,
-    images: [OG_IMAGE.url],
-  },
+  ...socialMeta({ title: TITLE, description: DESC, url: SITE_URL, type: "website" }),
 };
 
 // 構造化データ（サイト全体で真であるものだけ）。

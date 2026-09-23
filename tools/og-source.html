@@ -1,17 +1,29 @@
 <!-- OGP 画像（public/og.png・1200x630）の生成元。
-     再生成:
+     再生成（**macOS の Chrome で実行すること**・リポジトリルートから）:
        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
          --disable-gpu --hide-scrollbars --window-size=1200,630 \
          --force-device-scale-factor=1 --blink-settings=preferredColorScheme=1 \
          --screenshot=public/og.png "file://$PWD/tools/og-source.html"
+     明朝（Hiragino Mincho ProN / Yu Mincho）は macOS 同梱フォント。Linux/CI で
+     撮り直すと総称 serif に落ち、この製品の「藍と紙・明朝」の顔が黙って消える。
+     preferredColorScheme=1 は headless が既定でダークになる罠の回避。
 
-     色は app/theme.css の light 値（藍と生成り・craft パレット）をそのまま写している。
-     製品の画面と同じ「製図台に反物を広げた図」であることが、この画像の役目。
+     ■ 構造: 画面そのものを「製図面」として扱う（図面枠＋表題欄）。
+       一般的な OGP の骨格（左に見出し・右にイラスト・左下に URL）を避け、
+       製図面の作法＝外周の二重枠と右下の表題欄に製品名・生地幅・URL を収める。
+       app/theme.css の「製図台／型紙」というこの製品の顔を、色だけでなく
+       レイアウトの骨格で言う。
 
-     焼き込んでよい具体値は生地幅の 90/110/140 だけで、これは lib/calc.mjs の
-     FABRIC_WIDTHS と一致していなければならない（test/og.test.mjs が検査する）。
-     用尺そのものの数値は寸法や係数を直すと黙ってズレるので、画像には書かず
-     寸法線のラベルを「用尺」という定性的な語に留めている。 -->
+     ■ SNS のタイムラインでは幅 500px 程度（縮小率 0.42）に縮む。
+       この画像で意味を運ぶ文字はすべて 26px 以上＝実効 11px 以上を確保する。
+       それ未満の装飾文字は置かない。
+
+     ■ 焼き込んでよい具体値は生地幅の 90/110/140 だけで、これは lib/calc.mjs の
+       FABRIC_WIDTHS と一致していなければならない（test/og.test.mjs が検査する）。
+       用尺そのものの数値は寸法や係数を直すと黙ってズレるので画像には書かない。
+
+     ■ このファイルを編集したら必ず上のコマンドで og.png を撮り直し、
+       tools/og-source.sha256 を更新すること（test/og.test.mjs が未更新を検出する）。 -->
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
   *{margin:0;padding:0;box-sizing:border-box}
   :root{
@@ -27,7 +39,6 @@
     --bg:hsl(34 36% 99%);
     --text:hsl(34 14% 13%);
     --text-soft:hsl(34 10% 30%);
-    --text-dim:hsl(34 8% 44%);
     --border:hsl(34 20% 88%);
     --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
     --sans:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
@@ -40,101 +51,101 @@
       linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
     background-size:22px 22px;
     color:var(--text);font-family:var(--sans);
-    padding:52px 64px 44px;display:flex;flex-direction:column;
   }
 
-  /* ── 見出し（製図台の縁） ── */
-  header{display:flex;align-items:baseline;gap:18px;border-bottom:1px solid var(--border);padding-bottom:20px}
-  .seal{
-    width:46px;height:46px;flex:none;border:2px solid var(--accent);border-radius:6px;
-    display:grid;place-items:center;font-family:var(--mincho);font-size:26px;color:var(--accent);
-    align-self:center;
+  /* ── 図面枠（外周の二重枠） ── */
+  .sheet{
+    position:absolute;inset:16px;border:2px solid var(--text);
+    display:flex;flex-direction:column;padding:22px 26px 24px;
   }
-  h1{font-family:var(--mincho);font-size:52px;letter-spacing:.04em;font-weight:600;line-height:1}
-  .tag{margin-left:auto;font-size:14px;letter-spacing:.34em;color:var(--text-dim)}
+  .sheet::before{
+    content:"";position:absolute;inset:6px;border:1px solid var(--border);pointer-events:none;
+  }
 
-  main{flex:1;display:flex;gap:48px;padding-top:38px}
-
-  /* ── 左：言いたいこと ── */
-  .say{width:472px;flex:none;display:flex;flex-direction:column}
-  .kicker{font-size:17px;color:var(--text-soft);letter-spacing:.02em}
-  .lead{font-family:var(--mincho);font-size:40px;white-space:nowrap;line-height:1.5;margin-top:22px;letter-spacing:.02em}
+  /* ── 主張（図面の余白に書かれた注記のように） ── */
+  .lead{
+    font-family:var(--mincho);font-size:41px;line-height:1.34;letter-spacing:.02em;
+  }
   .lead b{color:var(--accent);font-weight:600}
-  .widths{margin-top:auto;display:flex;align-items:center;gap:10px}
-  .widths .lbl{font-size:15px;color:var(--text-dim);margin-right:2px}
-  .chip{
-    border:1px solid var(--accent);color:var(--accent);border-radius:9px;
-    padding:7px 13px;font-size:20px;font-weight:600;letter-spacing:.02em;
-  }
-  .unit{font-size:15px;color:var(--text-dim)}
 
-  /* ── 右：裁断レイアウト図 ── */
-  .plate{flex:1;display:flex;flex-direction:column}
-  .plate .cap{font-size:14px;letter-spacing:.2em;color:var(--text-dim);margin-bottom:12px}
+  /* ── 反物（裁断レイアウト） ── */
   .bolt{
-    position:relative;flex:1;background:var(--fabric);
-    border:1px solid var(--fabric-line);border-radius:4px;
-    /* 耳（selvage）＝上下の実線 */
-    box-shadow:inset 0 5px 0 -4px var(--fabric-line),inset 0 -5px 0 -4px var(--fabric-line);
-    padding:18px;display:flex;align-items:stretch;gap:12px;
+    position:relative;flex:none;margin-top:20px;height:158px;background:var(--fabric);
+    border:2px dashed var(--fabric-line); /* 裁ち線 */
+    padding:24px 16px 16px;display:flex;align-items:stretch;gap:14px;
+  }
+  /* わ（折り山）= 二つ折りの山。製品の裁断図で唯一 accent が入る線。 */
+  .wa{
+    position:absolute;left:18px;right:18px;top:15px;border-top:2px dashed var(--accent);
+  }
+  .wa span{
+    position:absolute;left:0;top:-15px;background:var(--fabric);padding:0 8px;
+    font-family:var(--mincho);font-size:24px;color:var(--accent);line-height:1;
   }
   .piece{
-    border:2px solid var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
+    border:2.5px solid var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
     border-radius:3px;display:grid;place-items:center;
-    font-size:18px;color:var(--c);font-weight:600;letter-spacing:.04em;
+    /* ラベルは中立色。色→意味は枠線と塗りが担う（製品の LayoutFigure と同じ設計） */
+    font-size:26px;color:var(--text);letter-spacing:.06em;
   }
   .p-front{--c:var(--piece-front);flex:2.1}
   .p-back{--c:var(--piece-back);flex:2}
-  .p-sleeve{--c:var(--piece-sleeve);flex:1.15;display:flex;flex-direction:column;gap:12px}
-  .p-sleeve>div{
-    flex:1;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
-    border-radius:3px;display:grid;place-items:center;font-size:17px;color:var(--c);font-weight:600;
-  }
-  .p-facing{--c:var(--piece-accent);flex:.8}
+  .p-sleeve{--c:var(--piece-sleeve);flex:1.2}
+  .p-facing{--c:var(--piece-accent);flex:.55} /* 細い茜のストリップ・ラベルなし */
 
-  /* 寸法線（用尺） */
-  .dim{margin-top:14px;display:flex;align-items:center;gap:12px;color:var(--accent)}
-  .dim .bar{flex:1;height:1px;background:currentColor;position:relative}
+  /* ── 寸法線（用尺） ── */
+  .dim{margin-top:16px;display:flex;align-items:center;gap:14px;color:var(--accent)}
+  .dim .bar{flex:1;height:2px;background:currentColor;position:relative}
   .dim .bar::before,.dim .bar::after{
-    content:"";position:absolute;top:-4px;width:1px;height:9px;background:currentColor;
+    content:"";position:absolute;top:-6px;width:2px;height:14px;background:currentColor;
   }
   .dim .bar::before{left:0}
   .dim .bar::after{right:0}
-  .dim .txt{font-family:var(--mincho);font-size:22px;letter-spacing:.14em}
+  .dim .txt{font-family:var(--mincho);font-size:29px;letter-spacing:.14em;line-height:1}
 
-  footer{padding-top:26px;font-size:16px;color:var(--text-dim);letter-spacing:.02em}
+  /* ── 表題欄（タイトルブロック・右下） ── */
+  .block{margin-top:auto;margin-left:auto;width:560px;border:2px solid var(--text)}
+  .block .row{display:flex;align-items:center;border-bottom:1px solid var(--border)}
+  .block .row:last-child{border-bottom:0}
+  .brand{gap:14px;padding:10px 16px}
+  .seal{
+    width:46px;height:46px;flex:none;border:2px solid var(--accent);border-radius:10px;
+    display:grid;place-items:center;font-family:var(--mincho);font-size:28px;
+    font-weight:700;color:var(--accent);
+  }
+  .brand h1{font-family:var(--mincho);font-size:41px;font-weight:600;letter-spacing:.04em;line-height:1}
+  .brand h1 b{color:var(--accent);font-weight:600}
+  .sub{padding:8px 16px;font-size:22px;color:var(--text-soft);letter-spacing:.01em}
+  .widths{padding:8px 16px;gap:9px;font-size:22px;color:var(--text-soft)}
+  .chip{
+    border:1.5px solid var(--accent);color:var(--accent);border-radius:8px;
+    padding:3px 11px;font-size:24px;font-weight:600;
+  }
+  .url{padding:8px 16px;font-size:21px;color:var(--text-soft);letter-spacing:.01em}
 </style></head><body>
+  <div class="sheet">
 
-  <header>
-    <div class="seal">用</div>
-    <h1>用尺カルク</h1>
-    <div class="tag">CUTTING LAYOUT</div>
-  </header>
+    <div class="lead">布を買う前に、<br><b>必要な長さ</b>がわかる。</div>
 
-  <main>
-    <section class="say">
-      <div class="kicker">衣服別 必要生地量・裁断レイアウト早見</div>
-      <div class="lead">布を買う前に、<br><b>必要な長さ</b>がわかる。</div>
-      <div class="widths">
-        <span class="lbl">生地幅</span>
-        <span class="chip">90</span>
-        <span class="chip">110</span>
-        <span class="chip">140</span>
-        <span class="unit">cm</span>
+    <div class="bolt">
+      <div class="wa"><span>わ</span></div>
+      <div class="piece p-front">前身頃</div>
+      <div class="piece p-back">後身頃</div>
+      <div class="piece p-sleeve">袖</div>
+      <div class="piece p-facing"></div>
+    </div>
+
+    <div class="dim"><span class="bar"></span><span class="txt">用尺</span><span class="bar"></span></div>
+
+    <div class="block">
+      <div class="row brand">
+        <div class="seal">尺</div>
+        <h1>用<b>尺</b>カルク</h1>
       </div>
-    </section>
+      <div class="row sub">衣服別 必要生地量・裁断レイアウト</div>
+      <div class="row widths">生地幅 <span class="chip">90</span><span class="chip">110</span><span class="chip">140</span> cm</div>
+      <div class="row url">ga-project.github.io/yoshaku-calc</div>
+    </div>
 
-    <section class="plate">
-      <div class="cap">裁断レイアウト</div>
-      <div class="bolt">
-        <div class="piece p-front">前身頃</div>
-        <div class="piece p-back">後身頃</div>
-        <div class="p-sleeve"><div>袖</div><div>袖</div></div>
-        <div class="piece p-facing">見返し</div>
-      </div>
-      <div class="dim"><span class="bar"></span><span class="txt">用尺</span><span class="bar"></span></div>
-    </section>
-  </main>
-
-  <footer>ga-project.github.io/yoshaku-calc</footer>
+  </div>
 </body></html>

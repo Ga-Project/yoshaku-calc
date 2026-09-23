@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "../../JsonLd";
 import { SITE_URL } from "../../site";
-import { OG_IMAGE } from "../../og";
+import { socialMeta } from "../../og";
 import {
   GUIDES,
   LINK_WIDTH,
@@ -46,21 +46,12 @@ export function generateMetadata({ params }: Params): Metadata {
     title,
     description: guide.description,
     alternates: { canonical: `/${path}` },
-    openGraph: {
+    ...socialMeta({
       title,
       description: guide.description,
-      type: "article",
-      locale: "ja_JP",
       url: `${SITE_URL}${path}`,
-      siteName: "用尺カルク",
-      images: [OG_IMAGE],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description: guide.description,
-      images: [OG_IMAGE.url],
-    },
+      type: "article",
+    }),
   };
 }
 

@@ -74,6 +74,12 @@ jobs:
         # アセットをサブパス基準で出力する。
         env:
           PAGES_BASE_PATH: /yoshaku-calc
+      # 配信される HTML に OGP 画像が載っているかを成果物で検査する。
+      # metadata の書き方をソースで縛ると共通化で落ち、ヘルパー越しの
+      # 画像なしページは素通りするため、実値で見る。
+      - run: node scripts/verify-og.mjs
+        env:
+          PAGES_BASE_PATH: /yoshaku-calc
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
