@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "../JsonLd";
 import { SITE_URL } from "../site";
+import { OG_IMAGE } from "../og";
 import { getGarment } from "@/lib/calc.mjs";
 import { GUIDES, buildOverview } from "./presets.mjs";
 import { Crumbs, Footer, Plate, Sheet } from "./Chrome";
@@ -26,8 +27,14 @@ export const metadata: Metadata = {
     locale: "ja_JP",
     url: `${SITE_URL}yardage/`,
     siteName: "用尺カルク",
+    images: [OG_IMAGE],
   },
-  twitter: { card: "summary", title: TITLE, description: DESC },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESC,
+    images: [OG_IMAGE.url],
+  },
 };
 
 export default function YardageIndex() {

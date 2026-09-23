@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "../../JsonLd";
 import { SITE_URL } from "../../site";
+import { OG_IMAGE } from "../../og";
 import {
   GUIDES,
   LINK_WIDTH,
@@ -52,8 +53,14 @@ export function generateMetadata({ params }: Params): Metadata {
       locale: "ja_JP",
       url: `${SITE_URL}${path}`,
       siteName: "用尺カルク",
+      images: [OG_IMAGE],
     },
-    twitter: { card: "summary", title, description: guide.description },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: guide.description,
+      images: [OG_IMAGE.url],
+    },
   };
 }
 
