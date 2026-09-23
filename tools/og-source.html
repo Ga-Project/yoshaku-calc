@@ -14,9 +14,11 @@
        app/theme.css の「製図台／型紙」というこの製品の顔を、色だけでなく
        レイアウトの骨格で言う。
 
-     ■ SNS のタイムラインでは幅 500px 程度（縮小率 0.42）に縮む。
-       この画像で意味を運ぶ文字はすべて 26px 以上＝実効 11px 以上を確保する。
-       それ未満の装飾文字は置かない。
+     ■ SNS のタイムラインでは幅 500px 程度（縮小率 0.4167）に縮む。下限は2つある。
+       和文（漢字）は 27px 以上＝実効 11.3px 以上。26px だと実効 10.8px で、
+       画数の多い字（服・量・裁）が潰れる。
+       ラテン字形だけの行（URL・数字のチップ）は 22px 以上＝実効 9.2px で読める。
+       いずれの下限も割る装飾文字は置かない。
 
      ■ 焼き込んでよい具体値は生地幅の 90/110/140 だけで、これは lib/calc.mjs の
        FABRIC_WIDTHS と一致していなければならない（test/og.test.mjs が検査する）。
@@ -97,7 +99,7 @@
 
   /* ── 注記（図面の余白に書く一言）: 左下に置き、表題欄と同じ底辺で揃える ── */
   .note{
-    position:absolute;left:28px;bottom:14px;width:498px;
+    position:absolute;left:26px;bottom:14px;width:498px;
     font-family:var(--mincho);font-size:40px;line-height:1.36;letter-spacing:.02em;
   }
   .note b{color:var(--accent);font-weight:600}
@@ -120,7 +122,9 @@
   /* 副題は「指定すると出る」を動詞で言う＝計算する道具だと絵だけで伝わるように。
      漢字は欧文より大きい下限が要る（500px 表示で 27px＝実効 11.3px）。 */
   .sub{padding:8px 16px;font-size:27px;color:var(--text-soft);letter-spacing:.01em}
-  .widths{padding:8px 16px;gap:9px;font-size:24px;color:var(--text-soft)}
+  /* 「生地幅」「cm」を含むので和文の下限（27px）を当てる。チップの数字は
+     ラテン字形なので 26px で読める。 */
+  .widths{padding:8px 16px;gap:9px;font-size:27px;color:var(--text-soft)}
   .chip{
     border:1.5px solid var(--accent);color:var(--accent);border-radius:8px;
     padding:2px 11px;font-size:26px;font-weight:600;

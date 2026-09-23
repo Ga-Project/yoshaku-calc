@@ -57,7 +57,10 @@ test("画像に用尺の実数値を焼き込んでいない", () => {
 
 test("画像に書いた URL は配信先（SITE_URL）と一致する", () => {
   // 画像内の URL は手書きなので、slug 変更やドメイン移行で黙ってズレる。
-  const origin = read("../app/site.ts").match(/const ORIGIN = "([^"]+)"/)?.[1];
+  // 前方のコメントに旧 ORIGIN が残っていると先頭一致でそれを拾うので、行コメントを落とす。
+  const origin = read("../app/site.ts")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .match(/const ORIGIN = "([^"]+)"/)?.[1];
   const slug = JSON.parse(read("../package.json")).name;
   assert.ok(origin, "app/site.ts から ORIGIN を読めない");
   const expected = `${origin.replace(/^https?:\/\//, "")}/${slug}`;
