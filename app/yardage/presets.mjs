@@ -41,7 +41,7 @@ import { FABRIC_WIDTHS, computeYardage, getGarment } from "../../lib/calc.mjs";
  * @property {Record<string, number>} base 固定する寸法
  * @property {Axis[]} axes
  * @property {string[]} tips この衣服ならではの注意（数字を含めない）
- * @property {((h: {axisSpan: (key: string) => {min: number, max: number}, m: (v: number) => string}) => string[])} [derivedTips]
+ * @property {((h: {axisSpan: (key: string) => {min: number, max: number}, axisEnds: (key: string) => {first: string, last: string}, axisSteps: (key: string) => {width: number, from: string}[], m: (v: number) => string}) => string[])} [derivedTips]
  *   表から導出して出す注記。数値を含む主張はこちらで書き、手書きしない
  */
 
@@ -260,7 +260,7 @@ export const GUIDES = [
       "胸当てエプロンに必要な生地の長さ（用尺）を、総丈・裾幅と生地幅 90／110／140cm の組み合わせで一覧にした早見表。保育・給食・カフェ用のエプロン作りの目安に。",
     lead: "胸当てエプロンは、本体 1 枚に細長いひもとポケットがつくだけの、形の単純な一着です。袖が無いぶん、ひもを本体の横に並べられるかどうかが必要な長さを左右します。",
     pieces:
-      "本体を「わ」で 1 枚、腰ひもを 2 本、首ひもを 1 本、ポケットを 1 枚。ひもは仕上がり幅 3cm の四つ折りを想定しています。首ひもは長さを固定した目安なので、首回りに合わせて調整してください。",
+      "本体を「わ」で 1 枚、腰ひもを 2 本、首ひもを 1 本、ポケットを 1 枚。腰ひもは二つ折りの生地から一度に 2 本取れるので、図では 1 本ぶんの場所に描いています。ひもは四つ折りで仕上がり幅 3cm（裁ち幅 12cm）を想定しています。胸当ても裾幅の長方形として見積もるため、実際の型紙より少し多めに出ます。首ひもは長さを固定した目安なので、首回りに合わせて調整してください。",
     base: { apronLen: 85, hemWidth: 76, tieLen: 60 },
     axes: [
       {
@@ -289,17 +289,23 @@ export const GUIDES = [
       },
     ],
     tips: [
-      "ひもは細長いパーツなので、本体の横に並べられる生地幅なら用尺はほとんど増えません。並ばない幅では、本体の下にひもの長さぶんが積み上がります。裾幅別の表で同じ生地幅の値が途中から跳ね上がるところが、その切り替わりです。",
+      "ひもは細長いパーツなので、本体の横に並べられる生地幅なら用尺はほとんど増えません。裾幅を広げてひもやポケットが横に並びきらなくなると、下の段に回り、そのぶん必要な長さが増えます。",
       "裾幅を広げると、本体が生地幅に収まらない組み合わせがあり、表にその印が出ます。その場合は広い生地を選ぶか、本体の中心ではぎ合わせる型紙にします。",
-      "腰ひもを長く取る（後ろで蝶結びにする等）と、ひもが本体より長くなった時点で並べ方が変わり、用尺が大きく伸びることがあります。腰ひもの長さは計算機で確かめてください。",
     ],
     // 数字を含む注記は表から導出する。手で書くと同じページの表と食い違う。
     derivedTips: (h) => {
       const d = h.axisSpan("apronLen");
+      const ends = h.axisEnds("apronLen");
       const span = d.min === d.max ? h.m(d.min) : `${h.m(d.min)}〜${h.m(d.max)}`;
-      return [
-        `総丈を伸ばしたぶんは、そのまま用尺に足されます。この表の子ども用と長めの差は ${span} です。`,
+      const tips = [
+        `総丈を伸ばしたぶんは、そのまま用尺に足されます。この表の${ends.first}と${ends.last}の差は ${span} です。`,
       ];
+      const steps = h.axisSteps("hemWidth");
+      if (steps.length > 0) {
+        const where = steps.map((s) => `${s.width}cm 幅では裾幅 ${s.from} から`).join("、");
+        tips.push(`裾幅別の表で、パーツが下の段に回って必要な長さが増える切り替わりは、${where}です。`);
+      }
+      return tips;
     },
   },
 ];
@@ -448,6 +454,59 @@ export function buildOverview() {
   });
 
   return { rows, widths: [...FABRIC_WIDTHS], spread };
+}
+
+/**
+ * ある軸の最初と最後の行の見出し（例: "65cm（子ども用）"）。本文で「◯◯と◯◯の差」と
+ * 書くときに使い、行を差し替えても文言がずれないようにする。
+ * @param {GarmentGuide} guide
+ * @param {string} axisKey
+ * @returns {{first: string, last: string}}
+ */
+export function axisEnds(guide, axisKey) {
+  const axis = guide.axes.find((a) => a.key === axisKey);
+  const first = axis?.rows[0];
+  const last = axis?.rows[axis.rows.length - 1];
+  if (!axis || !first || !last) throw new Error(`no axis ${axisKey} on ${guide.slug}`);
+  return { first: first.label, last: last.label };
+}
+
+/**
+ * ある軸を上から見て、生地幅ごとに「前の行より必要量が増えた最初の行」を実測する。
+ * 増えない生地幅は含めない。
+ * @param {GarmentGuide} guide
+ * @param {string} axisKey
+ * @returns {{width: number, from: string}[]}
+ */
+export function axisSteps(guide, axisKey) {
+  const axis = guide.axes.find((a) => a.key === axisKey);
+  if (!axis) throw new Error(`no axis ${axisKey} on ${guide.slug}`);
+  const table = buildTable(guide, axis);
+  /** @type {{width: number, from: string}[]} */
+  const out = [];
+  table.widths.forEach((width, i) => {
+    const r = table.rows.findIndex(
+      (row, k) => k > 0 && row.cells[i].totalCm > table.rows[k - 1].cells[i].totalCm,
+    );
+    if (r > 0) out.push({ width, from: table.rows[r].label });
+  });
+  return out;
+}
+
+/**
+ * 種別ページの「表から導いた注記」。ページとテストが同じ入口を通るよう、ここで組み立てる。
+ * @param {GarmentGuide} guide
+ * @returns {string[]}
+ */
+export function derivedTipsFor(guide) {
+  return (
+    guide.derivedTips?.({
+      axisSpan: (key) => axisSpanMeters(guide, key),
+      axisEnds: (key) => axisEnds(guide, key),
+      axisSteps: (key) => axisSteps(guide, key),
+      m: (v) => `${v.toFixed(1)}m`,
+    }) ?? []
+  );
 }
 
 /**

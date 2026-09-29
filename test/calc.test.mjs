@@ -186,14 +186,14 @@ test("formatMeters は小数1桁の m 表記", () => {
 test("エプロン: 本体・腰ひも・首ひも・ポケットを裁ち、袖は持たない", () => {
   const res = computeYardage("apron", 110, {});
   const labels = res.placed.map((p) => p.label).sort();
-  assert.deepEqual(labels, ["ポケット", "本体", "腰ひも", "首ひも"].sort());
+  assert.deepEqual(labels, ["ポケット", "本体", "腰ひも（2本分）", "首ひも"].sort());
   assert.ok(!getGarment("apron").inputs.some((i) => i.key === "sleeveLen"), "袖丈の入力を持たない");
 });
 
 test("エプロン: 140cm 幅ではひもが本体の横に並び、並ばない 90cm 幅より短い", () => {
   const wide = computeYardage("apron", 140, {});
   const body = wide.placed.find((p) => p.label === "本体");
-  const tie = wide.placed.find((p) => p.label === "腰ひも");
+  const tie = wide.placed.find((p) => p.label === "腰ひも（2本分）");
   assert.equal(tie.y, body.y, "腰ひもが本体と同じ行に置かれる");
   const narrow = computeYardage("apron", 90, {});
   assert.ok(wide.totalCm < narrow.totalCm, `140cm(${wide.totalCm}) < 90cm(${narrow.totalCm})`);
@@ -212,14 +212,27 @@ test("必要長さが同じなら、図は選んだ生地幅での並べ方を�
   const res = computeYardage("apron", 110, {});
   assert.equal(res.totalCm, computeYardage("apron", 90, {}).totalCm, "前提: 90cm と同じ長さ");
   const body = res.placed.find((p) => p.label === "本体");
-  const tie = res.placed.find((p) => p.label === "腰ひも");
+  const tie = res.placed.find((p) => p.label === "腰ひも（2本分）");
   assert.equal(tie.y, body.y, "腰ひもが本体と同じ行にある");
+});
+
+test("寸法を増やして必要量が減らない（全種別・全入力を 1cm 刻みで走査）", () => {
+  // 詰める順番を 1 通りに固定していた頃は、丈を 1cm 伸ばすと順番が入れ替わって
+  // 必要量が 20cm 減る、といった逆転が起きていた（例: エプロン総丈 55→56cm）。
+  let checked = 0;
   for (const g of GARMENTS) {
-    for (const w of FABRIC_WIDTHS) {
-      const r = computeYardage(g.id, w, defaults(g));
-      for (const p of r.placed) {
-        assert.ok(p.x + p.w <= r.workingWidth || p.overflow, `${g.id}@${w}: ${p.label} が作業幅に収まる`);
+    const base = defaults(g);
+    for (const input of g.inputs) {
+      for (const w of FABRIC_WIDTHS) {
+        let prev = -Infinity;
+        for (let x = input.min; x <= input.max; x += 1) {
+          const t = computeYardage(g.id, w, { ...base, [input.key]: x }).totalCm;
+          assert.ok(t >= prev, `${g.id}.${input.key}@${w}: ${x - 1}→${x}cm で ${prev}→${t}cm に減った`);
+          prev = t;
+          checked += 1;
+        }
       }
     }
   }
+  assert.ok(checked > 1000, `走査した組み合わせが十分にある: ${checked}`);
 });

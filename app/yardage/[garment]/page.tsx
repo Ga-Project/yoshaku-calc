@@ -13,7 +13,7 @@ import { socialMeta } from "../../og";
 import {
   GUIDES,
   LINK_WIDTH,
-  axisSpanMeters,
+  derivedTipsFor,
   buildTable,
   getGuide,
 } from "../presets.mjs";
@@ -62,11 +62,7 @@ export default function GarmentYardagePage({ params }: Params) {
 
   const tables = guide.axes.map((axis) => buildTable(guide, axis));
   // 数値を含む注記は表から導出する（手書きすると同じページの表と食い違う）。
-  const derived =
-    guide.derivedTips?.({
-      axisSpan: (key: string) => axisSpanMeters(guide, key),
-      m: (v: number) => `${v.toFixed(1)}m`,
-    }) ?? [];
+  const derived = derivedTipsFor(guide);
   const title = `${guide.searchName}の用尺早見表`;
   const path = `yardage/${guide.slug}/`;
 

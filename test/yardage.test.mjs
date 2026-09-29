@@ -15,10 +15,12 @@ import { dirname, join } from "node:path";
 import { FABRIC_WIDTHS, computeYardage, getGarment } from "../lib/calc.mjs";
 import {
   GUIDES,
+  axisSteps,
   LINK_WIDTH,
   axisSpanMeters,
   buildOverview,
   buildTable,
+  derivedTipsFor,
   findRepresentativeRow,
   getGuide,
 } from "../app/yardage/presets.mjs";
@@ -172,15 +174,13 @@ test("derivedTips の数値は表の実測差と一致する", () => {
   let produced = 0;
   for (const guide of GUIDES) {
     if (!guide.derivedTips) continue;
-    const tips = guide.derivedTips({
-      axisSpan: (key) => axisSpanMeters(guide, key),
-      m: (v) => `${v.toFixed(1)}m`,
-    });
+    const tips = derivedTipsFor(guide);
     assert.ok(Array.isArray(tips) && tips.length > 0, `${guide.slug} の derivedTips が文言を返す`);
     for (const tip of tips) {
       // 文中の m 表記が、その軸の実測差の範囲から作られていること。
       const nums = [...tip.matchAll(/(\d+\.\d)m/g)].map((mm) => Number(mm[1]));
-      assert.ok(nums.length > 0, `${guide.slug}: derivedTip に実測値が入る`);
+      // m 表記を持たない注記（切り替わり位置の説明など）は下の axisSteps のテストで検査する。
+      if (nums.length === 0) continue;
       for (const axis of guide.axes) {
         const span = axisSpanMeters(guide, axis.key);
         const lo = Number(Math.min(span.min, span.max).toFixed(1));
@@ -230,23 +230,60 @@ test("代表行は値で選ぶ（表示ラベルの前方一致では取り違�
   );
 });
 
-test("エプロンの注記『裾幅別の表で値が途中から跳ね上がる』は表で裏づけられる", () => {
-  // tips は数字を書かない代わりに、表の形について主張している。その形が実在することを確かめる。
+test("エプロンの注記: 裾幅別の表で必要量が増える箇所では、パーツが下の段に回っている", () => {
+  // tips は「横に並びきらなくなったパーツが下の段に回って必要量が増える」と主張している。
+  // 値が増えたことだけでなく、その原因が配置の変化（本体の横から外れる／段が増える）であることを確かめる。
   const guide = getGuide("apron");
   const axis = guide.axes.find((a) => a.key === "hemWidth");
   const table = buildTable(guide, axis);
-  const jumps = table.widths.filter((_, i) =>
-    table.rows.some((row, r) => r > 0 && row.cells[i].totalCm > table.rows[r - 1].cells[i].totalCm),
-  );
-  assert.ok(jumps.length > 0, "裾幅を広げると必要量が増える生地幅が少なくとも1つある");
+  const shape = (w, value) => {
+    const res = computeYardage("apron", w, { ...guide.base, hemWidth: value });
+    const body = res.placed.find((p) => p.label === "本体");
+    return {
+      beside: res.placed.filter((p) => p !== body && p.y === body.y).length,
+      rows: new Set(res.placed.map((p) => p.y)).size,
+    };
+  };
+  let jumps = 0;
+  table.widths.forEach((w, i) => {
+    table.rows.forEach((row, r) => {
+      if (r === 0 || row.cells[i].totalCm <= table.rows[r - 1].cells[i].totalCm) return;
+      const before = shape(w, table.rows[r - 1].value);
+      const after = shape(w, row.value);
+      assert.ok(
+        after.beside < before.beside || after.rows > before.rows,
+        `${w}cm 幅・裾幅 ${row.label}: 増えた箇所でパーツが下の段に回っている`,
+      );
+      jumps += 1;
+    });
+  });
+  assert.ok(jumps > 0, "裾幅を広げて必要量が増える箇所が表に少なくとも1つある");
   assert.ok(
     table.rows.some((row) => row.cells.some((c) => c.widthShortage)),
     "『収まらない印が出る』組み合わせが表に含まれる",
   );
 });
 
-test("エプロンの注記『腰ひもを長く取ると大きく伸びることがある』は計算機で成立する", () => {
-  const short = computeYardage("apron", 90, { apronLen: 85, hemWidth: 76, tieLen: 60 }).totalCm;
-  const long = computeYardage("apron", 90, { apronLen: 85, hemWidth: 76, tieLen: 100 }).totalCm;
-  assert.ok(long - short > 40, `腰ひも 60→100cm の差 ${long - short}cm が伸ばした長さを上回る`);
+test("どの種別の導入文も最上級を主張しない", () => {
+  for (const guide of GUIDES) {
+    assert.ok(!/最も|いちばん|一番/.test(guide.lead), `${guide.slug} の lead に最上級が無い`);
+  }
+});
+
+test("axisSteps が挙げる切り替わりは、表で実際に前の行より増えている行を指す", () => {
+  const guide = getGuide("apron");
+  const table = buildTable(guide, guide.axes.find((a) => a.key === "hemWidth"));
+  const steps = axisSteps(guide, "hemWidth");
+  assert.ok(steps.length > 0, "切り替わりが少なくとも1つある");
+  for (const { width, from } of steps) {
+    const i = table.widths.indexOf(width);
+    const r = table.rows.findIndex((row) => row.label === from);
+    assert.ok(i >= 0 && r > 0, `${width}cm/${from} が表に存在する`);
+    assert.ok(table.rows[r].cells[i].totalCm > table.rows[r - 1].cells[i].totalCm, `${width}cm/${from} で増えている`);
+    for (let k = 1; k < r; k += 1) {
+      assert.ok(table.rows[k].cells[i].totalCm <= table.rows[k - 1].cells[i].totalCm, `${width}cm: ${from} より前では増えていない`);
+    }
+  }
+  const tips = derivedTipsFor(guide).join("\n");
+  for (const { width, from } of steps) assert.ok(tips.includes(`${width}cm 幅では裾幅 ${from} から`), "本文に載る");
 });

@@ -1,7 +1,9 @@
 # yoshaku-calc — standalone pnpm 設定。
-# pnpm 11 は
-# 未許可の依存ビルドスクリプトを ERR_PNPM_IGNORED_BUILDS で hard-fail させるため、
-# 単独でビルドが通るよう許可するネイティブビルドをここで明示する(供給網の最小許可)。
+# ビルドスクリプトを実行してよい依存は下の allowBuilds に明示する(供給網の最小許可)。
+# それ以外の依存のビルドスクリプトは実行されない。pnpm 11 の既定ではそれが
+# ERR_PNPM_IGNORED_BUILDS の hard-fail になるため、末尾の strictDepBuilds: false で
+# 「実行せずに続行」にしている。スキップされた依存は install ログの警告に出るので、
+# 依存を足したときはその警告を見て、必要なら allowBuilds に加える。
 #
 #   unrs-resolver: eslint-config-next が使うリゾルバ(ネイティブ binding)。
 #                  `next lint` / install の build script に必要。
@@ -48,6 +50,4 @@ auditConfig:
 allowBuilds:
   unrs-resolver: true
 
-# allowBuilds に無い依存のビルドスクリプトを「無視して続行」にする（hard-fail させない）。
-# 許可リストの取りこぼしで install が落ちるのを防ぐ。ネイティブビルドの許可は上の allowBuilds が正。
 strictDepBuilds: false

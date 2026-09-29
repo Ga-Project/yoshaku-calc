@@ -11,6 +11,7 @@ import Guide, { FAQ } from "./Guide";
 import JsonLd from "./JsonLd";
 
 type CalcResult = NonNullable<ReturnType<typeof computeYardage>>;
+type Garment = (typeof GARMENTS)[number];
 type Store = Record<string, Record<string, string>>;
 
 // このページの FAQ を構造化データにする。表示（Guide.tsx）と同じ配列から作るので、
@@ -411,7 +412,7 @@ export default function Home() {
                 </div>
 
                 <ul className="legend" aria-label="パーツの色">
-                  {legendItems(result).map((item) => (
+                  {legendItems(result, garment).map((item) => (
                     <li className="legend-item" key={item.color}>
                       <span
                         className="legend-swatch"
@@ -478,12 +479,14 @@ export default function Home() {
 }
 
 /** 凡例に出す色（結果に登場するパーツ種別だけ）。 */
-function legendItems(result: CalcResult) {
-  const labels: Record<string, string> = {
+function legendItems(result: CalcResult, garment: Garment) {
+  // 種別ごとの上書き（例: エプロンは前後も見返しも無いので「本体」「ひも・ポケット」）。
+  const labels: Record<string, string | undefined> = {
     front: "前パーツ",
     back: "後パーツ",
     sleeve: "袖",
     accent: "見返し・ベルト等",
+    ...garment.legend,
   };
   const seen = new Set<string>();
   const out: { color: string; label: string }[] = [];
@@ -520,6 +523,9 @@ function Ruler({
 }
 
 /** 裁断レイアウト概算図（わ裁ち・作業幅 = 生地幅/2 にパーツを配置）。 */
+/** 裁断図のパーツ名の文字サイズ（SVG の cm 座標系）。 */
+const LABEL_FONT = 3.2;
+
 function LayoutFigure({ result }: { result: CalcResult }) {
   const W = result.workingWidth;
   const H = Math.max(result.totalCm, result.rawCm);
@@ -528,12 +534,14 @@ function LayoutFigure({ result }: { result: CalcResult }) {
   const padB = 12; // 幅寸法の余白
   const vbW = padL + W + padR;
   const vbH = H + padB;
+  // 読み上げ用: 実際に置いたパーツ名（重複は1回）を並べる。種別で中身が違うため固定文言にしない。
+  const pieceNames = [...new Set(result.placed.map((p) => p.label))].join("・");
 
   return (
     <svg
       viewBox={`0 0 ${vbW} ${vbH}`}
       role="img"
-      aria-label={`生地幅${result.fabricWidth}cm・必要長さ約${result.totalCm}cmの裁断レイアウト概算。前後の身頃や袖などを二つ折りの生地に配置した図。`}
+      aria-label={`生地幅${result.fabricWidth}cm・必要長さ約${result.totalCm}cmの裁断レイアウト概算。${pieceNames}を二つ折りの生地に配置した図。`}
       style={{ maxHeight: "64vh" }}
     >
       {/* 生地（作業幅ぶん） */}
@@ -575,7 +583,11 @@ function LayoutFigure({ result }: { result: CalcResult }) {
         const cvar = `var(${PIECE_VARS[p.color] ?? "--piece-front"})`;
         const cx = padL + p.x + p.w / 2;
         const cy = p.y + p.h / 2;
-        const showLabel = p.w >= 12 && p.h >= 10;
+        // 文字の占有幅の概算（全角1字 ≒ フォントサイズ）。横に収まれば横書き、
+        // 細長いパーツ（ひも等）で横に収まらず縦に収まれば、「わ」と同じく縦書きにする。
+        const textLen = p.label.length * LABEL_FONT;
+        const horizontal = p.w >= 12 && p.h >= 10 && textLen <= p.w + 2;
+        const vertical = !horizontal && p.h > p.w && p.w >= 5 && textLen <= p.h - 4;
         return (
           <g key={`${p.label}-${p.x}-${p.y}`}>
             <rect
@@ -592,13 +604,25 @@ function LayoutFigure({ result }: { result: CalcResult }) {
                 strokeDasharray: p.overflow ? "2 1.5" : "none",
               }}
             />
-            {showLabel && (
+            {horizontal && (
               <text
                 x={cx}
                 y={cy}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                style={{ fill: "var(--text)", fontSize: 3.2 }}
+                style={{ fill: "var(--text)", fontSize: LABEL_FONT }}
+              >
+                {p.label}
+              </text>
+            )}
+            {vertical && (
+              <text
+                x={cx}
+                y={cy}
+                transform={`rotate(-90 ${cx} ${cy})`}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                style={{ fill: "var(--text)", fontSize: LABEL_FONT }}
               >
                 {p.label}
               </text>
