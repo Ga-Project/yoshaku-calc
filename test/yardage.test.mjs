@@ -229,3 +229,24 @@ test("代表行は値で選ぶ（表示ラベルの前方一致では取り違�
     "見つからなければ例外にしてビルドを落とす",
   );
 });
+
+test("エプロンの注記『裾幅別の表で値が途中から跳ね上がる』は表で裏づけられる", () => {
+  // tips は数字を書かない代わりに、表の形について主張している。その形が実在することを確かめる。
+  const guide = getGuide("apron");
+  const axis = guide.axes.find((a) => a.key === "hemWidth");
+  const table = buildTable(guide, axis);
+  const jumps = table.widths.filter((_, i) =>
+    table.rows.some((row, r) => r > 0 && row.cells[i].totalCm > table.rows[r - 1].cells[i].totalCm),
+  );
+  assert.ok(jumps.length > 0, "裾幅を広げると必要量が増える生地幅が少なくとも1つある");
+  assert.ok(
+    table.rows.some((row) => row.cells.some((c) => c.widthShortage)),
+    "『収まらない印が出る』組み合わせが表に含まれる",
+  );
+});
+
+test("エプロンの注記『腰ひもを長く取ると大きく伸びることがある』は計算機で成立する", () => {
+  const short = computeYardage("apron", 90, { apronLen: 85, hemWidth: 76, tieLen: 60 }).totalCm;
+  const long = computeYardage("apron", 90, { apronLen: 85, hemWidth: 76, tieLen: 100 }).totalCm;
+  assert.ok(long - short > 40, `腰ひも 60→100cm の差 ${long - short}cm が伸ばした長さを上回る`);
+});

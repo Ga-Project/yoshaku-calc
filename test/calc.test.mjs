@@ -19,8 +19,8 @@ function defaults(garment) {
   return v;
 }
 
-test("GARMENTS は5種別・各々が入力定義と pieces 関数を持つ", () => {
-  assert.equal(GARMENTS.length, 5);
+test("GARMENTS は6種別・各々が入力定義と pieces 関数を持つ", () => {
+  assert.equal(GARMENTS.length, 6);
   for (const g of GARMENTS) {
     assert.ok(g.id && g.label && typeof g.pieces === "function");
     assert.ok(Array.isArray(g.inputs) && g.inputs.length >= 1);
@@ -181,4 +181,27 @@ test("配置パーツは作業幅内に概ね収まり座標が非負", () => {
 test("formatMeters は小数1桁の m 表記", () => {
   assert.equal(formatMeters(230), "2.3m");
   assert.equal(formatMeters(100), "1.0m");
+});
+
+test("エプロン: 本体・腰ひも・首ひも・ポケットを裁ち、袖は持たない", () => {
+  const res = computeYardage("apron", 110, {});
+  const labels = res.placed.map((p) => p.label).sort();
+  assert.deepEqual(labels, ["ポケット", "本体", "腰ひも", "首ひも"].sort());
+  assert.ok(!getGarment("apron").inputs.some((i) => i.key === "sleeveLen"), "袖丈の入力を持たない");
+});
+
+test("エプロン: 140cm 幅ではひもが本体の横に並び、並ばない 90cm 幅より短い", () => {
+  const wide = computeYardage("apron", 140, {});
+  const body = wide.placed.find((p) => p.label === "本体");
+  const tie = wide.placed.find((p) => p.label === "腰ひも");
+  assert.equal(tie.y, body.y, "腰ひもが本体と同じ行に置かれる");
+  const narrow = computeYardage("apron", 90, {});
+  assert.ok(wide.totalCm < narrow.totalCm, `140cm(${wide.totalCm}) < 90cm(${narrow.totalCm})`);
+});
+
+test("エプロン: 裾幅が広すぎると 90cm 幅で本体が収まらない印が出る", () => {
+  const res = computeYardage("apron", 90, { apronLen: 85, hemWidth: 90, tieLen: 60 });
+  assert.equal(res.widthShortage, true);
+  assert.ok(res.placed.find((p) => p.label === "本体").overflow);
+  assert.equal(computeYardage("apron", 140, { apronLen: 85, hemWidth: 90, tieLen: 60 }).widthShortage, false);
 });

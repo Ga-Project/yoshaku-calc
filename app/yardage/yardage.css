@@ -252,7 +252,7 @@
   white-space: nowrap;
 }
 
-/* トップの種別ボタンと同じ絵文字を添え、同一の5種別だと分かるようにする。 */
+/* トップの種別ボタンと同じ絵文字を添え、同一の種別だと分かるようにする。 */
 .yardage-emoji {
   margin-inline-end: var(--sp-2);
   font-style: normal;
