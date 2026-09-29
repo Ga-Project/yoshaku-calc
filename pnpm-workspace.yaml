@@ -47,3 +47,7 @@ auditConfig:
 
 allowBuilds:
   unrs-resolver: true
+
+# allowBuilds に無い依存のビルドスクリプトを「無視して続行」にする（hard-fail させない）。
+# 許可リストの取りこぼしで install が落ちるのを防ぐ。ネイティブビルドの許可は上の allowBuilds が正。
+strictDepBuilds: false
