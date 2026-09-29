@@ -691,7 +691,7 @@ function LayoutFigure({ result }: { result: CalcResult }) {
         textAnchor="middle"
         style={{ fill: "var(--text-dim)", fontSize: 3.4 }}
       >
-        {`作業幅 ${W}cm（生地幅 ${result.fabricWidth}cm を二つ折り・右端 ${SELVAGE_CM}cm は耳）`}
+        {`作業幅 ${W}cm（生地幅 ${result.fabricWidth}cm を二つ折り）`}
       </text>
     </svg>
   );

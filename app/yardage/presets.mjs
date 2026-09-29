@@ -682,7 +682,6 @@ export function axisSpanMeters(guide, axisKey) {
   const first = table.rows[0];
   const last = table.rows[table.rows.length - 1];
   if (!first || !last) throw new Error(`empty axis ${axisKey} on ${guide.slug}`);
-  if (first.cells.length !== last.cells.length) throw new Error(`missing cell on ${guide.slug}`);
   return spanOfCells(first.cells, last.cells);
 }
 
@@ -694,9 +693,11 @@ export function axisSpanMeters(guide, axisKey) {
  * @returns {{min: number, max: number} | null}
  */
 export function spanOfCells(firstCells, lastCells) {
+  // 列数の食い違いは入力の不整合。「比べられない」として黙って注記を消さず、ビルドを落とす。
+  if (firstCells.length !== lastCells.length) throw new Error("spanOfCells: 行の列数が一致しない");
   const diffs = firstCells.flatMap((a, i) => {
     const b = lastCells[i];
-    if (!b) return [];
+    if (!b) throw new Error(`spanOfCells: ${i} 列目のセルが無い`);
     return a.widthShortage || b.widthShortage ? [] : [b.totalM - a.totalM];
   });
   if (diffs.length === 0) return null;
