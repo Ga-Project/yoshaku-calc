@@ -75,8 +75,9 @@ export default function YardageIndex() {
         <section className="paper-section" aria-labelledby="overview-head">
           <h2 id="overview-head">代表的な一着で比べる</h2>
           <p className="paper-note">
-            各種別の標準的な寸法での必要量です。同じ生地幅でも、衣服によって
-            {minRatio.toFixed(1)}〜{maxRatio.toFixed(1)} 倍の開きがあります。
+            各種別の標準的な寸法での必要量です。
+            {spread.length > 0 &&
+              `同じ生地幅でも、衣服によって${minRatio.toFixed(1)}〜${maxRatio.toFixed(1)} 倍の開きがあります。`}
             固定した寸法は衣服ごとのページに書いてあります。
           </p>
           <div

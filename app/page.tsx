@@ -526,7 +526,7 @@ function Ruler({
 /** 裁断図のパーツ名の文字サイズ（SVG の cm 座標系）と、枠からの余白・縮小の下限。 */
 const LABEL_FONT = 3.2;
 const LABEL_PAD = 1;
-const LABEL_FONT_MIN = 2.2;
+const LABEL_FONT_MIN = 2.6;
 /** これより幅の狭い縦長パーツ（ひも等）は常に縦書きにする(cm)。 */
 const SLENDER_MAX_W = 16;
 
@@ -596,7 +596,8 @@ function LayoutFigure({ result }: { result: CalcResult }) {
         // 「細長い」はひも幅のパーツだけ（身頃のような大きなパーツは極端な寸法でも横書きのまま）。
         const slender = p.w < SLENDER_MAX_W && p.w >= 5 && p.h >= p.w * 3;
         const hFit = Math.min(LABEL_FONT, (p.w - LABEL_PAD * 2) / p.label.length);
-        const vFit = Math.min(LABEL_FONT, (p.h - LABEL_PAD * 2) / p.label.length);
+        // 縦書きは文字の高さ（= フォントサイズ）がパーツの幅にも収まること。
+        const vFit = Math.min(LABEL_FONT, (p.h - LABEL_PAD * 2) / p.label.length, p.w - LABEL_PAD * 2);
         const horizontal = !slender && p.w >= 12 && p.h >= 10 && hFit >= LABEL_FONT_MIN;
         const vertical = !horizontal && (slender || p.h > p.w) && vFit >= LABEL_FONT_MIN;
         const fontSize = horizontal ? hFit : vFit;

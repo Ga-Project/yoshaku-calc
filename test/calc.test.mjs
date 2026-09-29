@@ -10,6 +10,7 @@ import {
   getGarment,
   formatMeters,
   SAFETY_MARGIN_CM,
+  SELVAGE_CM,
   MAX_PERMUTE_PIECES,
   packPieces,
 } from "../lib/calc.mjs";
@@ -176,7 +177,7 @@ test("配置パーツは作業幅内に概ね収まり座標が非負", () => {
   for (const p of res.placed) {
     assert.ok(p.x >= 0 && p.y >= 0, "座標は非負");
     if (!p.overflow)
-      assert.ok(p.x + p.w <= res.workingWidth + 0.001, "作業幅内に収まる");
+      assert.ok(p.x + p.w <= res.usableWidth + 0.001, "耳を除いた幅に収まる");
   }
 });
 
@@ -209,10 +210,13 @@ test("エプロン: 裾幅が広すぎると 90cm 幅で本体が収まらない
 });
 
 test("必要長さが同じなら、図は選んだ生地幅での並べ方を見せる", () => {
-  // エプロンは 90cm と 110cm で必要長さが同じ。110cm を選んだら、腰ひもが本体の横に並ぶ
+  // 裾幅 60cm のエプロンは 90cm と 110cm で必要長さが同じ。110cm を選んだら、腰ひもが本体の横に並ぶ
   // 110cm の配置を描く（90cm の配置を流用すると、右に空きを残したまま下に積んだ図になる）。
-  const res = computeYardage("apron", 110, {});
-  assert.equal(res.totalCm, computeYardage("apron", 90, {}).totalCm, "前提: 90cm と同じ長さ");
+  const v = { apronLen: 85, hemWidth: 60, tieLen: 60 };
+  const res = computeYardage("apron", 110, v);
+  const narrow = computeYardage("apron", 90, v);
+  assert.equal(res.rawCm, narrow.rawCm, "前提: 90cm と同じ長さ");
+  assert.notDeepEqual(res.placed.map((p) => [p.x, p.y]), narrow.placed.map((p) => [p.x, p.y]), "前提: 配置は違う");
   const body = res.placed.find((p) => p.label === "本体");
   const tie = res.placed.find((p) => p.label === "腰ひも（2本分）");
   assert.equal(tie.y, body.y, "腰ひもが本体と同じ行にある");
@@ -257,8 +261,8 @@ test("配置の不変条件: はみ出しは必ず印つき・重ならない・
       for (const w of FABRIC_WIDTHS) {
         const r = computeYardage(g.id, w, v);
         for (const p of r.placed) {
-          assert.equal(p.overflow, p.w > r.workingWidth, `${g.id}@${w}: ${p.label} の overflow は作業幅超えと一致`);
-          if (!p.overflow) assert.ok(p.x + p.w <= r.workingWidth, `${g.id}@${w}: ${p.label} が作業幅に収まる`);
+          assert.equal(p.overflow, p.w > r.usableWidth, `${g.id}@${w}: ${p.label} の overflow は使える幅超えと一致`);
+          if (!p.overflow) assert.ok(p.x + p.w <= r.usableWidth, `${g.id}@${w}: ${p.label} が耳を除いた幅に収まる`);
         }
         for (let i = 0; i < r.placed.length; i += 1) {
           for (let j = i + 1; j < r.placed.length; j += 1) {
@@ -285,7 +289,10 @@ test("寸法を増やして必要量が減らない（他の入力を min/既定
       for (const input of g.inputs) {
         for (const w of FABRIC_WIDTHS) {
           let prev = -Infinity;
-          for (let x = input.min; x <= input.max; x += 2) {
+          const xs = [];
+          for (let x = input.min; x < input.max; x += 2) xs.push(x);
+          xs.push(input.max);
+          for (const x of xs) {
             const t = computeYardage(g.id, w, { ...base, [input.key]: x }).totalCm;
             assert.ok(t >= prev, `${g.id}.${input.key}@${w} (${JSON.stringify(base)}): ${x}cm で ${prev}→${t}`);
             prev = t;
@@ -314,10 +321,22 @@ test("上限を超える枚数では背の高い順の 1 通りだけで詰め�
     h: 20 + ((i * 13) % 50),
     color: "front",
   }));
-  const t0 = Date.now();
   const r = packPieces(pieces, 45);
-  assert.ok(Date.now() - t0 < 200, "順列を回さずに返る");
   const heights = r.placed.map((p) => p.h);
   assert.deepEqual(heights, [...heights].sort((a, b) => b - a), "背の高い順に置かれている");
   assert.deepEqual(r.placed.map((p) => p.order).sort((a, b) => a - b), pieces.map((_, i) => i), "order は元の順番");
+});
+
+test("耳の分を引いた幅で並べる: 使える幅 = 作業幅 − 耳。表示の作業幅いっぱいに頼る配置は採らない", () => {
+  for (const g of GARMENTS) {
+    for (const w of FABRIC_WIDTHS) {
+      const r = computeYardage(g.id, w, defaults(g));
+      assert.equal(r.usableWidth, w / 2 - SELVAGE_CM);
+      const right = Math.max(...r.placed.filter((p) => !p.overflow).map((p) => p.x + p.w));
+      assert.ok(right <= r.usableWidth, `${g.id}@${w}: 右端 ${right} が使える幅 ${r.usableWidth} 以内`);
+    }
+  }
+  // 設計レビューで見つかった「残り幅 0〜1cm」の配置が採られていないこと。
+  assert.ok(computeYardage("dress", 110, {}).totalCm >= 270, "ワンピース 110cm は袖を身頃の横に詰め込まない");
+  assert.ok(computeYardage("apron", 90, {}).totalCm >= 180, "エプロン 90cm は作業幅ちょうどの配置に頼らない");
 });

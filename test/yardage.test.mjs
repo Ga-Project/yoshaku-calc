@@ -16,6 +16,9 @@ import { FABRIC_WIDTHS, computeYardage, getGarment } from "../lib/calc.mjs";
 import {
   GUIDES,
   axisSteps,
+  axisIncrements,
+  baseCells,
+  spreadOf,
   LINK_WIDTH,
   axisSpanMeters,
   buildOverview,
@@ -183,6 +186,7 @@ test("derivedTips の数値は表の実測差と一致する", () => {
       if (nums.length === 0) continue;
       for (const axis of guide.axes) {
         const span = axisSpanMeters(guide, axis.key);
+        if (!span) continue;
         const lo = Number(Math.min(span.min, span.max).toFixed(1));
         const hi = Number(Math.max(span.min, span.max).toFixed(1));
         if (nums.every((n) => n >= lo && n <= hi)) {
@@ -334,7 +338,6 @@ test("ワンピース: 140cm 幅で大きく減るのは前後の身頃が横に
   assert.ok(sameRow("dress", 140, guide.base, "前身頃", "後身頃"), "140cm 幅では身頃が横に並ぶ");
   assert.ok(!sameRow("dress", 110, guide.base, "前身頃", "後身頃"), "110cm 幅では身頃が縦に積まれる");
   assert.ok(!sameRow("dress", 90, guide.base, "前身頃", "後身頃"), "90cm 幅では身頃が縦に積まれる");
-  assert.ok(sameRow("dress", 110, guide.base, "前身頃", "袖"), "110cm 幅で減るのは袖が身頃の横に並ぶぶん");
   assert.ok(t(110) - t(140) > t(90) - t(110), "140cm 幅での減り方の方が大きい");
 });
 
@@ -366,13 +369,118 @@ test("パンツ: 本文の『縦に積まれる／横に並べられる』と長
   assert.ok(!/2m を超え|半分近く/.test(guide.tips.join("")), "手書きの数値主張が残っていない");
 });
 
-test("スカート: 『90cm 幅と 110cm 幅の差が大きく開くところが切り替わり』は表と配置で成立する", () => {
+test("スカート: 『前後が横に並ぶのは◯cm 幅』は配置から出ていて、並ぶ幅は 1 枚ぶん・並ばない幅は 2 枚ぶん積む", () => {
   const guide = getGuide("skirt");
-  const table = buildTable(guide, guide.axes.find((a) => a.key === "hip"));
-  const wide = table.rows.filter((r) => r.cells[0].totalCm - r.cells[1].totalCm >= 50);
-  assert.ok(wide.length > 0, "差が大きく開く行がある");
-  for (const r of wide) {
-    assert.ok(sameRow("skirt", 110, { ...guide.base, hip: r.value }, "前スカート", "後スカート"), `${r.label}: 110cm 幅で前後が横に並ぶ`);
-    assert.ok(!sameRow("skirt", 90, { ...guide.base, hip: r.value }, "前スカート", "後スカート"), `${r.label}: 90cm 幅では並ばない`);
+  const tip = derivedTipsFor(guide).join("\n");
+  assert.ok(tip.length > 0, "注記が出る（前提: 並ぶ幅と並ばない幅の両方がある）");
+  for (const w of FABRIC_WIDTHS) {
+    const beside = sameRow("skirt", w, guide.base, "前スカート", "後スカート");
+    assert.equal(tip.includes(`${w}cm`), beside, `${w}cm 幅: 本文に載る ⇔ 横に並ぶ`);
+    const res = computeYardage("skirt", w, guide.base);
+    const h = res.placed.find((p) => p.label === "前スカート").h;
+    if (beside) assert.ok(res.rawCm < h * 2, `${w}cm 幅: 1 枚ぶんで済む`);
+    else assert.ok(res.rawCm >= h * 2, `${w}cm 幅: 2 枚ぶん積む`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 導入文・パーツ説明の定量的な主張（数字や「収まらない」等）を計算機の実出力で固定する。
+// 詰め方を変えたときに、表の外の文言が黙って嘘になるのを防ぐ。
+// ---------------------------------------------------------------------------
+
+test("スカートの lead『丈が短ければ 1m を切ることもある』は入力範囲内で成立する", () => {
+  const guide = getGuide("skirt");
+  assert.ok(/1m を切る/.test(guide.lead), "前提: lead がこの主張をしている");
+  const g = getGarment("skirt");
+  const len = g.inputs.find((i) => i.key === "skirtLen");
+  const min = Math.min(...FABRIC_WIDTHS.map((w) => computeYardage("skirt", w, { ...guide.base, skirtLen: len.min }).totalCm));
+  assert.ok(min < 100, `最短丈で ${min}cm < 100cm になる生地幅がある`);
+});
+
+test("ジャケットの lead『サイズによっては 90cm 幅に身頃が収まらない』は表と配置で成立する", () => {
+  const guide = getGuide("jacket");
+  assert.ok(/90cm 幅に身頃が収まりません/.test(guide.lead), "前提: lead がこの主張をしている");
+  const table = buildTable(guide, guide.axes.find((a) => a.key === "bust"));
+  const i90 = table.widths.indexOf(90);
+  const short = table.rows.filter((r) => r.cells[i90].widthShortage);
+  assert.ok(short.length > 0, "90cm 幅で幅不足の行が表にある");
+  for (const r of short) {
+    const res = computeYardage("jacket", 90, { ...guide.base, bust: r.value });
+    assert.ok(res.placed.some((p) => p.overflow && p.label.includes("身頃")), `${r.label}: 収まらないのは身頃`);
+  }
+});
+
+test("エプロンの説明の『仕上がり幅・裁ち幅』は計算機のひもの寸法と一致する（四つ折り = 裁ち幅の 1/4）", () => {
+  const guide = getGuide("apron");
+  const m = guide.pieces.match(/仕上がり幅 (\d+)cm（裁ち幅 (\d+)cm）/);
+  assert.ok(m, "説明に仕上がり幅と裁ち幅がある");
+  const finished = Number(m[1]);
+  const cut = Number(m[2]);
+  const pieces = getGarment("apron").pieces({ apronLen: 85, hemWidth: 76, tieLen: 60 });
+  for (const p of pieces.filter((q) => q.label.includes("ひも"))) {
+    assert.equal(p.w, cut, `${p.label} の裁ち幅が説明と一致`);
+  }
+  assert.equal(cut / 4, finished, "四つ折りの仕上がり幅 = 裁ち幅 / 4");
+});
+
+test("ワンピースの lead『丈が長い一着ほど生地幅の選び方で差が開く』は表で成立する", () => {
+  const guide = getGuide("dress");
+  const table = buildTable(guide, guide.axes.find((a) => a.key === "bodyLen"));
+  const gap = table.rows.map((r) => r.cells[0].totalCm - r.cells[r.cells.length - 1].totalCm);
+  for (let k = 1; k < gap.length; k += 1) assert.ok(gap[k] >= gap[k - 1], `丈を伸ばして差が縮まない: ${gap}`);
+  assert.ok(gap[gap.length - 1] > gap[0], `最長丈の差が最短丈の差より大きい: ${gap}`);
+});
+
+// ---------------------------------------------------------------------------
+// 「幅が足りない」（表では — と出る）セルの数値を、本文・比率に使わない。
+// 現行データでは該当しないため、幅不足を含む合成ガイドで確かめる。
+// ---------------------------------------------------------------------------
+
+test("幅不足のセルは差・増え方・固定寸法の結果・種別間の比率のいずれにも使わない", () => {
+  // ジャケットのバスト 136cm は 90cm 幅で身頃が収まらない（上のテストで固定）。
+  const jacket = getGuide("jacket");
+  const synthetic = {
+    ...jacket,
+    base: { ...jacket.base, bust: 136 },
+    axes: [
+      {
+        key: "bust",
+        caption: "",
+        rowHeader: "",
+        fixedNote: "",
+        rows: [
+          { value: 96, label: "96cm" },
+          { value: 136, label: "136cm" },
+        ],
+      },
+    ],
+  };
+  const table = buildTable(synthetic, synthetic.axes[0]);
+  const i90 = table.widths.indexOf(90);
+  assert.ok(table.rows[1].cells[i90].widthShortage, "前提: 最後の行の 90cm 幅は幅不足");
+
+  const span = axisSpanMeters(synthetic, "bust");
+  const valid = table.widths
+    .map((_, i) => i)
+    .filter((i) => !table.rows[0].cells[i].widthShortage && !table.rows[1].cells[i].widthShortage)
+    .map((i) => table.rows[1].cells[i].totalM - table.rows[0].cells[i].totalM);
+  assert.deepEqual(span, { min: Math.min(...valid), max: Math.max(...valid) }, "差は幅不足の幅を除いて取る");
+
+  assert.ok(!axisIncrements(synthetic, "bust").some((x) => x.width === 90), "増え方に 90cm 幅が入らない");
+  assert.ok(!baseCells(synthetic).some((c) => c.fabricWidth === 90), "固定寸法の結果に 90cm 幅が入らない");
+
+  const rows = [
+    { guide: synthetic, cells: table.rows[1].cells },
+    { guide: getGuide("skirt"), cells: buildOverview().rows.find((r) => r.guide.slug === "skirt").cells },
+  ];
+  const spread = spreadOf(rows);
+  assert.ok(!spread.some((s) => s.width === 90), "比べられる種別が 1 つしかない 90cm 幅は比率に含めない");
+  assert.ok(spread.length > 0, "他の幅では比率が出る");
+
+  // 全て幅不足なら注記は出さない（null）。
+  const allShort = { ...synthetic, axes: [{ ...synthetic.axes[0], rows: [{ value: 136, label: "136cm" }, { value: 140, label: "140cm" }] }] };
+  const t2 = buildTable(allShort, allShort.axes[0]);
+  if (t2.rows.every((r) => r.cells.every((c) => c.widthShortage))) {
+    assert.equal(axisSpanMeters(allShort, "bust"), null);
   }
 });
