@@ -487,6 +487,7 @@ test("幅不足のセルは差・増え方・固定寸法の結果・種別間�
     "片方の行でも幅不足の生地幅は比べない",
   );
   assert.throws(() => spanOfCells([cell(90, 1, false)], []), /列数が一致しない/, "列数の食い違いは例外");
+  assert.throws(() => spanOfCells([cell(90, 1, false)], [undefined]), /セルが無い/, "セルの欠落は例外");
 });
 
 test("耳の説明は計算の定数と一致する（FAQ・生地幅の表・幅不足の説明・README・裁断図）", () => {

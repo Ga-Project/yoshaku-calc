@@ -340,3 +340,15 @@ test("耳の分を引いた幅で並べる: 使える幅 = 作業幅 − 耳。�
   assert.ok(computeYardage("dress", 110, {}).totalCm >= 270, "ワンピース 110cm は袖を身頃の横に詰め込まない");
   assert.ok(computeYardage("apron", 90, {}).totalCm >= 180, "エプロン 90cm は作業幅ちょうどの配置に頼らない");
 });
+
+test("裁断図の下の表記は、どの生地幅でも図の枠に収まる（左右に余白を残す）", async () => {
+  const { figureWidth, figureCaption, estimateTextWidth, CAPTION_FONT } = await import("../lib/figure.mjs");
+  for (const w of FABRIC_WIDTHS) {
+    const working = w / 2;
+    const text = figureCaption(working, w);
+    const width = estimateTextWidth(text, CAPTION_FONT);
+    assert.ok(width <= figureWidth(working) - 2, `${w}cm 幅: 表記 ${width.toFixed(1)} <= 枠 ${figureWidth(working) - 2}`);
+  }
+  // 見積もり自体の妥当性: 全角だけの文字列は 1 字 = 文字サイズ。
+  assert.equal(estimateTextWidth("作業幅", 2), 6);
+});

@@ -8,6 +8,7 @@ import {
   getGarment,
   SELVAGE_CM,
 } from "@/lib/calc.mjs";
+import { CAPTION_FONT, FIG_PAD_L, FIG_PAD_R, figureCaption, figureWidth } from "@/lib/figure.mjs";
 import Guide, { FAQ } from "./Guide";
 import JsonLd from "./JsonLd";
 
@@ -539,10 +540,10 @@ const SLENDER_MAX_W = 16;
 function LayoutFigure({ result }: { result: CalcResult }) {
   const W = result.workingWidth;
   const H = Math.max(result.totalCm, result.rawCm);
-  const padL = 8; // 「わ」表示の余白
-  const padR = 22; // 寸法注記の余白
+  const padL = FIG_PAD_L; // 「わ」表示の余白
+  const padR = FIG_PAD_R; // 寸法注記の余白
   const padB = 12; // 幅寸法の余白
-  const vbW = padL + W + padR;
+  const vbW = figureWidth(W);
   const vbH = H + padB;
   // 読み上げ用: 実際に置いたパーツ名（重複は1回）を並べる。種別で中身が違うため固定文言にしない。
   // 並びは型紙の定義順（詰め方で入れ替わる配置順にしない）。
@@ -684,14 +685,14 @@ function LayoutFigure({ result }: { result: CalcResult }) {
         {`必要長さ 約 ${result.totalCm}cm（${result.totalM.toFixed(1)}m）`}
       </text>
 
-      {/* 下側: 作業幅 */}
+      {/* 下側: 作業幅。生地ではなく図の枠の中央に置く（生地の中央だと 90cm 幅で左に切れる） */}
       <text
-        x={padL + W / 2}
+        x={vbW / 2}
         y={H + padB - 3}
         textAnchor="middle"
-        style={{ fill: "var(--text-dim)", fontSize: 3.4 }}
+        style={{ fill: "var(--text-dim)", fontSize: CAPTION_FONT }}
       >
-        {`作業幅 ${W}cm（生地幅 ${result.fabricWidth}cm を二つ折り）`}
+        {figureCaption(W, result.fabricWidth)}
       </text>
     </svg>
   );
