@@ -205,3 +205,21 @@ test("エプロン: 裾幅が広すぎると 90cm 幅で本体が収まらない
   assert.ok(res.placed.find((p) => p.label === "本体").overflow);
   assert.equal(computeYardage("apron", 140, { apronLen: 85, hemWidth: 90, tieLen: 60 }).widthShortage, false);
 });
+
+test("必要長さが同じなら、図は選んだ生地幅での並べ方を見せる", () => {
+  // エプロンは 90cm と 110cm で必要長さが同じ。110cm を選んだら、腰ひもが本体の横に並ぶ
+  // 110cm の配置を描く（90cm の配置を流用すると、右に空きを残したまま下に積んだ図になる）。
+  const res = computeYardage("apron", 110, {});
+  assert.equal(res.totalCm, computeYardage("apron", 90, {}).totalCm, "前提: 90cm と同じ長さ");
+  const body = res.placed.find((p) => p.label === "本体");
+  const tie = res.placed.find((p) => p.label === "腰ひも");
+  assert.equal(tie.y, body.y, "腰ひもが本体と同じ行にある");
+  for (const g of GARMENTS) {
+    for (const w of FABRIC_WIDTHS) {
+      const r = computeYardage(g.id, w, defaults(g));
+      for (const p of r.placed) {
+        assert.ok(p.x + p.w <= r.workingWidth || p.overflow, `${g.id}@${w}: ${p.label} が作業幅に収まる`);
+      }
+    }
+  }
+});
