@@ -569,20 +569,12 @@ function LayoutFigure({ result }: { result: CalcResult }) {
           strokeWidth: 0.5,
         }}
       />
-      {/* 耳（開いた側の端・裁てない部分）= 右端の斜線の帯。はみ出したパーツはここに掛かって見える */}
+      {/* 耳（開いた側の端・裁てない部分）= 右端の斜線の帯（パーツの後に描く） */}
       <defs>
         <pattern id="selvage-hatch" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="2" style={{ stroke: "var(--text-dim)", strokeWidth: 0.5 }} />
         </pattern>
       </defs>
-      <rect
-        data-selvage=""
-        x={padL + result.usableWidth}
-        y={0}
-        width={W - result.usableWidth}
-        height={H}
-        style={{ fill: "url(#selvage-hatch)", opacity: 0.55 }}
-      />
       {/* わ（折り山）= 左端の破線 */}
       <line
         x1={padL}
@@ -663,6 +655,16 @@ function LayoutFigure({ result }: { result: CalcResult }) {
           </g>
         );
       })}
+
+      {/* 耳の帯はパーツの上に重ねる（はみ出したパーツが帯に掛かっている様子が見えるように） */}
+      <rect
+        data-selvage=""
+        x={padL + result.usableWidth}
+        y={0}
+        width={W - result.usableWidth}
+        height={H}
+        style={{ fill: "url(#selvage-hatch)", opacity: 0.55 }}
+      />
 
       {/* 右側: 必要長さの寸法線（生地の右辺に寄り添わせる） */}
       <g style={{ stroke: "var(--text-dim)", strokeWidth: 0.4 }}>
