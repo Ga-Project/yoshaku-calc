@@ -478,6 +478,8 @@ export default function Home() {
   );
 }
 
+const LEGEND_ORDER = ["front", "back", "sleeve", "accent"];
+
 /** 凡例に出す色（結果に登場するパーツ種別だけ）。 */
 function legendItems(result: CalcResult, garment: Garment) {
   // 種別ごとの上書き（例: エプロンは前後も見返しも無いので「本体」「ひも・ポケット」）。
@@ -488,15 +490,13 @@ function legendItems(result: CalcResult, garment: Garment) {
     accent: "見返し・ベルト等",
     ...garment.legend,
   };
-  const seen = new Set<string>();
-  const out: { color: string; label: string }[] = [];
-  for (const p of result.placed) {
-    if (!seen.has(p.color)) {
-      seen.add(p.color);
-      out.push({ color: p.color, label: labels[p.color] ?? p.color });
-    }
-  }
-  return out;
+  // 並びは配色トークンの固定順。図に置いた順にすると、生地幅を切り替えたときに
+  // 凡例の同じ位置が別の色になる。図に出てくる色だけを残す。
+  const used = new Set(result.placed.map((p) => p.color));
+  return LEGEND_ORDER.filter((c) => used.has(c)).map((color) => ({
+    color,
+    label: labels[color] ?? color,
+  }));
 }
 
 /** 製図台の目盛り定規（作業幅を 0〜上限の物差しとして示す）。 */
@@ -523,8 +523,12 @@ function Ruler({
 }
 
 /** 裁断レイアウト概算図（わ裁ち・作業幅 = 生地幅/2 にパーツを配置）。 */
-/** 裁断図のパーツ名の文字サイズ（SVG の cm 座標系）。 */
+/** 裁断図のパーツ名の文字サイズ（SVG の cm 座標系）と、枠からの余白・縮小の下限。 */
 const LABEL_FONT = 3.2;
+const LABEL_PAD = 1;
+const LABEL_FONT_MIN = 2.2;
+/** これより幅の狭い縦長パーツ（ひも等）は常に縦書きにする(cm)。 */
+const SLENDER_MAX_W = 16;
 
 function LayoutFigure({ result }: { result: CalcResult }) {
   const W = result.workingWidth;
@@ -535,7 +539,10 @@ function LayoutFigure({ result }: { result: CalcResult }) {
   const vbW = padL + W + padR;
   const vbH = H + padB;
   // 読み上げ用: 実際に置いたパーツ名（重複は1回）を並べる。種別で中身が違うため固定文言にしない。
-  const pieceNames = [...new Set(result.placed.map((p) => p.label))].join("・");
+  // 並びは型紙の定義順（詰め方で入れ替わる配置順にしない）。
+  const pieceNames = [
+    ...new Set([...result.placed].sort((a, b) => a.order - b.order).map((p) => p.label)),
+  ].join("・");
 
   return (
     <svg
@@ -583,11 +590,16 @@ function LayoutFigure({ result }: { result: CalcResult }) {
         const cvar = `var(${PIECE_VARS[p.color] ?? "--piece-front"})`;
         const cx = padL + p.x + p.w / 2;
         const cy = p.y + p.h / 2;
-        // 文字の占有幅の概算（全角1字 ≒ フォントサイズ）。横に収まれば横書き、
-        // 細長いパーツ（ひも等）で横に収まらず縦に収まれば、「わ」と同じく縦書きにする。
-        const textLen = p.label.length * LABEL_FONT;
-        const horizontal = p.w >= 12 && p.h >= 10 && textLen <= p.w + 2;
-        const vertical = !horizontal && p.h > p.w && p.w >= 5 && textLen <= p.h - 4;
+        // 文字の占有幅の概算（全角1字 ≒ フォントサイズ）。枠線に掛からないよう左右に余白を取る。
+        // 細長いパーツ（ひも等）は「わ」と同じく縦書きにそろえる。横書きで収まらなければ
+        // 文字を小さくして収め、読めない大きさになる場合だけ名前を出さない。
+        // 「細長い」はひも幅のパーツだけ（身頃のような大きなパーツは極端な寸法でも横書きのまま）。
+        const slender = p.w < SLENDER_MAX_W && p.w >= 5 && p.h >= p.w * 3;
+        const hFit = Math.min(LABEL_FONT, (p.w - LABEL_PAD * 2) / p.label.length);
+        const vFit = Math.min(LABEL_FONT, (p.h - LABEL_PAD * 2) / p.label.length);
+        const horizontal = !slender && p.w >= 12 && p.h >= 10 && hFit >= LABEL_FONT_MIN;
+        const vertical = !horizontal && (slender || p.h > p.w) && vFit >= LABEL_FONT_MIN;
+        const fontSize = horizontal ? hFit : vFit;
         return (
           <g key={`${p.label}-${p.x}-${p.y}`}>
             <rect
@@ -610,7 +622,7 @@ function LayoutFigure({ result }: { result: CalcResult }) {
                 y={cy}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                style={{ fill: "var(--text)", fontSize: LABEL_FONT }}
+                style={{ fill: "var(--text)", fontSize }}
               >
                 {p.label}
               </text>
@@ -622,7 +634,7 @@ function LayoutFigure({ result }: { result: CalcResult }) {
                 transform={`rotate(-90 ${cx} ${cy})`}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                style={{ fill: "var(--text)", fontSize: LABEL_FONT }}
+                style={{ fill: "var(--text)", fontSize }}
               >
                 {p.label}
               </text>

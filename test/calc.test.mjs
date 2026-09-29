@@ -10,6 +10,8 @@ import {
   getGarment,
   formatMeters,
   SAFETY_MARGIN_CM,
+  MAX_PERMUTE_PIECES,
+  packPieces,
 } from "../lib/calc.mjs";
 
 /** 各種別の既定値で raw 入力を作る。 */
@@ -235,4 +237,87 @@ test("寸法を増やして必要量が減らない（全種別・全入力を 1
     }
   }
   assert.ok(checked > 1000, `走査した組み合わせが十分にある: ${checked}`);
+});
+
+/** 各入力を min / 既定値 / max に振った全組み合わせ。 */
+function grid(garment) {
+  let combos = [{}];
+  for (const input of garment.inputs) {
+    const vals = [...new Set([input.min, input.def, input.max])];
+    combos = combos.flatMap((c) => vals.map((v) => ({ ...c, [input.key]: v })));
+  }
+  return combos;
+}
+
+test("配置の不変条件: はみ出しは必ず印つき・重ならない・長さは配置の外形と一致・広い幅で長くならない", () => {
+  let checked = 0;
+  for (const g of GARMENTS) {
+    for (const v of grid(g)) {
+      let prevTotal = Infinity;
+      for (const w of FABRIC_WIDTHS) {
+        const r = computeYardage(g.id, w, v);
+        for (const p of r.placed) {
+          assert.equal(p.overflow, p.w > r.workingWidth, `${g.id}@${w}: ${p.label} の overflow は作業幅超えと一致`);
+          if (!p.overflow) assert.ok(p.x + p.w <= r.workingWidth, `${g.id}@${w}: ${p.label} が作業幅に収まる`);
+        }
+        for (let i = 0; i < r.placed.length; i += 1) {
+          for (let j = i + 1; j < r.placed.length; j += 1) {
+            const a = r.placed[i];
+            const b = r.placed[j];
+            const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+            assert.ok(!overlap, `${g.id}@${w}: ${a.label} と ${b.label} が重ならない`);
+          }
+        }
+        assert.equal(r.rawCm, Math.max(...r.placed.map((p) => p.y + p.h)), `${g.id}@${w}: rawCm = 配置の外形`);
+        assert.ok(r.totalCm <= prevTotal, `${g.id}@${w}: 広い幅で長くならない`);
+        prevTotal = r.totalCm;
+        checked += 1;
+      }
+    }
+  }
+  assert.ok(checked > 100, `検査した組み合わせ: ${checked}`);
+});
+
+test("寸法を増やして必要量が減らない（他の入力を min/既定値/max に振った格子でも）", () => {
+  let checked = 0;
+  for (const g of GARMENTS) {
+    for (const base of grid(g)) {
+      for (const input of g.inputs) {
+        for (const w of FABRIC_WIDTHS) {
+          let prev = -Infinity;
+          for (let x = input.min; x <= input.max; x += 2) {
+            const t = computeYardage(g.id, w, { ...base, [input.key]: x }).totalCm;
+            assert.ok(t >= prev, `${g.id}.${input.key}@${w} (${JSON.stringify(base)}): ${x}cm で ${prev}→${t}`);
+            prev = t;
+            checked += 1;
+          }
+        }
+      }
+    }
+  }
+  assert.ok(checked > 10000, `走査した組み合わせ: ${checked}`);
+});
+
+test("全種別のパーツ枚数は全順番を試す上限以内（上限を超える種別を足すと詰め方が粗くなる）", () => {
+  for (const g of GARMENTS) {
+    for (const v of grid(g)) {
+      const n = g.pieces(normalizeValues(g, v)).length;
+      assert.ok(n <= MAX_PERMUTE_PIECES, `${g.id}: ${n} 枚 <= ${MAX_PERMUTE_PIECES}`);
+    }
+  }
+});
+
+test("上限を超える枚数では背の高い順の 1 通りだけで詰め、すぐに返る", () => {
+  const pieces = Array.from({ length: MAX_PERMUTE_PIECES + 3 }, (_, i) => ({
+    label: `p${i}`,
+    w: 10 + (i % 3) * 7,
+    h: 20 + ((i * 13) % 50),
+    color: "front",
+  }));
+  const t0 = Date.now();
+  const r = packPieces(pieces, 45);
+  assert.ok(Date.now() - t0 < 200, "順列を回さずに返る");
+  const heights = r.placed.map((p) => p.h);
+  assert.deepEqual(heights, [...heights].sort((a, b) => b - a), "背の高い順に置かれている");
+  assert.deepEqual(r.placed.map((p) => p.order).sort((a, b) => a - b), pieces.map((_, i) => i), "order は元の順番");
 });

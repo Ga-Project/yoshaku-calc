@@ -41,8 +41,22 @@ import { FABRIC_WIDTHS, computeYardage, getGarment } from "../../lib/calc.mjs";
  * @property {Record<string, number>} base 固定する寸法
  * @property {Axis[]} axes
  * @property {string[]} tips この衣服ならではの注意（数字を含めない）
- * @property {((h: {axisSpan: (key: string) => {min: number, max: number}, axisEnds: (key: string) => {first: string, last: string}, axisSteps: (key: string) => {width: number, from: string}[], m: (v: number) => string}) => string[])} [derivedTips]
+ * @property {((h: TipHelpers) => string[])} [derivedTips]
  *   表から導出して出す注記。数値を含む主張はこちらで書き、手書きしない
+ */
+
+/**
+ * derivedTips に渡す、表と配置から値を引く道具。
+ * @typedef {Object} TipHelpers
+ * @property {(key: string) => {min: number, max: number}} axisSpan 最初と最後の行の差(m)の最小・最大
+ * @property {(key: string) => {first: string, last: string}} axisEnds 最初と最後の行見出し
+ * @property {(key: string) => {width: number, from: string}[]} axisSteps 前の行より増えた箇所（全件）
+ * @property {(key: string) => {width: number, min: number, max: number}[]} axisIncrements 行ごとの増え方(cm)
+ * @property {(key: string) => number} axisStep 行の値の刻み(cm)。等間隔でなければ例外
+ * @property {(key: string, fromRow: number) => number[]} flatWidths fromRow 行目以降の値が全て同じ生地幅
+ * @property {() => Cell[]} baseCells 固定寸法（base）での各生地幅の結果
+ * @property {(width: number, a: string, b: string) => boolean} sideBySide base の配置で a と b が同じ段にあるか
+ * @property {(v: number) => string} m
  */
 
 /** @type {GarmentGuide[]} */
@@ -84,14 +98,21 @@ export const GUIDES = [
     ],
     tips: [
       "衿と見返しは小さなパーツなので、身頃や袖の脇にできた空きに収まることが多く、そのぶん用尺には表れにくくなります。",
-      "半袖で足りるなら、袖のぶんの差がそのまま生地代の差になります。",
     ],
     // 数字を含む注記は表から導出する。手で書くと同じページの表と食い違う。
     derivedTips: (h) => {
       const d = h.axisSpan("sleeveLen");
-      return [
-        `袖の有無は用尺に大きく効きます。この表のノースリーブと長袖の差は、生地幅によって ${h.m(d.min)}〜${h.m(d.max)} です。`,
+      const tips = [
+        `袖の有無で用尺は変わります。この表のノースリーブと長袖の差は、生地幅によって ${h.m(d.min)}〜${h.m(d.max)} です。`,
       ];
+      // 半袖〜長袖の行で値が変わらない生地幅 = 袖が身頃の横に収まっている幅。
+      const flat = h.flatWidths("sleeveLen", 1);
+      if (flat.length > 0) {
+        tips.push(
+          `${flat.join("・")}cm 幅では、半袖から長袖まで必要な長さが変わりません。袖が身頃の横に収まるためです。`,
+        );
+      }
+      return tips;
     },
   },
   {
@@ -130,9 +151,19 @@ export const GUIDES = [
       },
     ],
     tips: [
-      "丈を伸ばしたときの効き方は生地幅で変わります。前身頃と後身頃が縦に積まれる 90・110cm 幅では、丈を 15cm 伸ばすと必要な長さは 2 枚ぶんの 30cm 増えます。身頃が横に並ぶ 140cm 幅では増えるのは伸ばしたぶんだけで、10cm 単位に丸めた表では 10〜20cm の増加として現れます。",
-      "身頃が 2 枚とも縦に積まれる配置になると、生地幅を広げても必要な長さは減りません。140cm 幅の恩恵が出るのは、身頃を横に 2 枚並べられるサイズのときです。",
+      "140cm 幅で必要な長さが大きく減るのは、前後の身頃を横に 2 枚並べられるときです。身頃が縦に積まれたままだと、袖が身頃の横に並ぶぶんしか減りません。",
     ],
+    // 増え方の数字は表から導出する。手で書くと詰め方の改善で同じページの表と食い違う。
+    derivedTips: (h) => {
+      const incs = h.axisIncrements("bodyLen");
+      const step = h.axisStep("bodyLen");
+      const range = (i) => (i.min === i.max ? `${i.min}cm` : `${i.min}〜${i.max}cm`);
+      return [
+        `丈を伸ばしたときの効き方は生地幅で変わります。丈を ${step}cm ずつ伸ばしたこの表では、必要な長さの増え方が ${incs
+          .map((i) => `${i.width}cm 幅で ${range(i)}`)
+          .join("、")}です。前後の身頃が縦に積まれる幅では 2 枚ぶん、横に並ぶ幅では 1 枚ぶん伸びるためです（10cm 単位に丸めています）。`,
+      ];
+    },
   },
   {
     slug: "skirt",
@@ -208,9 +239,19 @@ export const GUIDES = [
       },
     ],
     tips: [
-      "フルレングスのパンツは、前後が縦に積まれると必要な長さが 2m を超えます。前後を横に並べられる条件に入ると、一気に半分近くまで落ちます。",
       "裾を折り返して仕立てる場合や、股上を深く取る型紙では、表の数字に 10〜20cm 足しておくと安心です。",
     ],
+    // 「縦に積まれる／横に並ぶ」と、そのときの長さは配置から導出する。
+    derivedTips: (h) => {
+      const at = h.baseCells();
+      const stacked = at.filter((c) => !h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
+      const beside = at.filter((c) => h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
+      const list = (cs) => cs.map((c) => `${c.fabricWidth}cm 幅で ${h.m(c.totalM)}`).join("、");
+      if (stacked.length === 0 || beside.length === 0) return [];
+      return [
+        `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。並べられるかどうかで必要な長さが大きく変わります。`,
+      ];
+    },
   },
   {
     slug: "jacket",
@@ -302,7 +343,12 @@ export const GUIDES = [
       ];
       const steps = h.axisSteps("hemWidth");
       if (steps.length > 0) {
-        const where = steps.map((s) => `${s.width}cm 幅では裾幅 ${s.from} から`).join("、");
+        /** @type {Map<number, string[]>} */
+        const byWidth = new Map();
+        for (const s of steps) byWidth.set(s.width, [...(byWidth.get(s.width) ?? []), s.from]);
+        const where = [...byWidth]
+          .map(([w, froms]) => `${w}cm 幅では裾幅 ${froms.join("・")} のところ`)
+          .join("、");
         tips.push(`裾幅別の表で、パーツが下の段に回って必要な長さが増える切り替わりは、${where}です。`);
       }
       return tips;
@@ -471,26 +517,101 @@ export function axisEnds(guide, axisKey) {
   return { first: first.label, last: last.label };
 }
 
+/** @param {GarmentGuide} guide @param {string} axisKey */
+function axisTable(guide, axisKey) {
+  const axis = guide.axes.find((a) => a.key === axisKey);
+  if (!axis) throw new Error(`no axis ${axisKey} on ${guide.slug}`);
+  return buildTable(guide, axis);
+}
+
 /**
- * ある軸を上から見て、生地幅ごとに「前の行より必要量が増えた最初の行」を実測する。
- * 増えない生地幅は含めない。
+ * ある軸を上から見て、前の行より必要量が増えた箇所を生地幅ごとに全て実測する。
+ * 「幅が足りない」セル（その幅では裁てない）は比較に使わない。
  * @param {GarmentGuide} guide
  * @param {string} axisKey
  * @returns {{width: number, from: string}[]}
  */
 export function axisSteps(guide, axisKey) {
-  const axis = guide.axes.find((a) => a.key === axisKey);
-  if (!axis) throw new Error(`no axis ${axisKey} on ${guide.slug}`);
-  const table = buildTable(guide, axis);
+  const table = axisTable(guide, axisKey);
   /** @type {{width: number, from: string}[]} */
   const out = [];
   table.widths.forEach((width, i) => {
-    const r = table.rows.findIndex(
-      (row, k) => k > 0 && row.cells[i].totalCm > table.rows[k - 1].cells[i].totalCm,
-    );
-    if (r > 0) out.push({ width, from: table.rows[r].label });
+    table.rows.forEach((row, k) => {
+      if (k === 0) return;
+      const prev = table.rows[k - 1].cells[i];
+      const cur = row.cells[i];
+      if (prev.widthShortage || cur.widthShortage) return;
+      if (cur.totalCm > prev.totalCm) out.push({ width, from: `${row.value}cm` });
+    });
   });
   return out;
+}
+
+/**
+ * 行ごとの増え方(cm)の最小・最大を生地幅ごとに実測する。
+ * @param {GarmentGuide} guide
+ * @param {string} axisKey
+ * @returns {{width: number, min: number, max: number}[]}
+ */
+export function axisIncrements(guide, axisKey) {
+  const table = axisTable(guide, axisKey);
+  return table.widths.map((width, i) => {
+    const diffs = table.rows.slice(1).map((row, k) => row.cells[i].totalCm - table.rows[k].cells[i].totalCm);
+    return { width, min: Math.min(...diffs), max: Math.max(...diffs) };
+  });
+}
+
+/**
+ * 行の値の刻み(cm)。等間隔でなければ「◯cm ずつ」と書けないので例外にする。
+ * @param {GarmentGuide} guide
+ * @param {string} axisKey
+ */
+export function axisStep(guide, axisKey) {
+  const axis = guide.axes.find((a) => a.key === axisKey);
+  if (!axis || axis.rows.length < 2) throw new Error(`no axis ${axisKey} on ${guide.slug}`);
+  const steps = new Set(axis.rows.slice(1).map((r, k) => r.value - axis.rows[k].value));
+  if (steps.size !== 1) throw new Error(`${guide.slug}.${axisKey} の行が等間隔でない`);
+  return [...steps][0];
+}
+
+/**
+ * fromRow 行目以降の値がすべて同じになる生地幅。
+ * @param {GarmentGuide} guide
+ * @param {string} axisKey
+ * @param {number} fromRow
+ * @returns {number[]}
+ */
+export function flatWidths(guide, axisKey, fromRow) {
+  const table = axisTable(guide, axisKey);
+  return table.widths.filter((_, i) => {
+    const vals = table.rows.slice(fromRow).map((r) => r.cells[i]);
+    return vals.length > 1 && vals.every((c) => !c.widthShortage && c.totalCm === vals[0].totalCm);
+  });
+}
+
+/**
+ * base の配置で、ラベル a と b のパーツが同じ段（同じ y）に並んでいるか。
+ * @param {GarmentGuide} guide
+ * @param {number} width
+ * @param {string} a
+ * @param {string} b
+ */
+export function sideBySide(guide, width, a, b) {
+  const res = computeYardage(guide.slug, width, guide.base);
+  if (!res) throw new Error(`compute failed: ${guide.slug}@${width}`);
+  const pa = res.placed.find((p) => p.label === a);
+  const pb = res.placed.find((p) => p.label === b);
+  if (!pa || !pb) throw new Error(`no piece ${a}/${b} on ${guide.slug}`);
+  return pa.y === pb.y;
+}
+
+/** @param {GarmentGuide} guide @returns {Cell[]} */
+function baseCells(guide) {
+  return FABRIC_WIDTHS.map((w) => {
+    const res = computeYardage(guide.slug, w, guide.base);
+    if (!res) throw new Error(`compute failed: ${guide.slug}@${w}`);
+    return { fabricWidth: w, totalCm: res.totalCm, totalM: res.totalM, widthShortage: res.widthShortage };
+  });
 }
 
 /**
@@ -504,6 +625,11 @@ export function derivedTipsFor(guide) {
       axisSpan: (key) => axisSpanMeters(guide, key),
       axisEnds: (key) => axisEnds(guide, key),
       axisSteps: (key) => axisSteps(guide, key),
+      axisIncrements: (key) => axisIncrements(guide, key),
+      axisStep: (key) => axisStep(guide, key),
+      flatWidths: (key, fromRow) => flatWidths(guide, key, fromRow),
+      baseCells: () => baseCells(guide),
+      sideBySide: (width, a, b) => sideBySide(guide, width, a, b),
       m: (v) => `${v.toFixed(1)}m`,
     }) ?? []
   );

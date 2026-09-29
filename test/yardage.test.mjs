@@ -270,20 +270,109 @@ test("どの種別の導入文も最上級を主張しない", () => {
   }
 });
 
-test("axisSteps が挙げる切り替わりは、表で実際に前の行より増えている行を指す", () => {
+test("axisSteps が挙げる切り替わりは、表で実際に前の行より増えている行を全て指す", () => {
   const guide = getGuide("apron");
   const table = buildTable(guide, guide.axes.find((a) => a.key === "hemWidth"));
   const steps = axisSteps(guide, "hemWidth");
-  assert.ok(steps.length > 0, "切り替わりが少なくとも1つある");
-  for (const { width, from } of steps) {
-    const i = table.widths.indexOf(width);
-    const r = table.rows.findIndex((row) => row.label === from);
-    assert.ok(i >= 0 && r > 0, `${width}cm/${from} が表に存在する`);
-    assert.ok(table.rows[r].cells[i].totalCm > table.rows[r - 1].cells[i].totalCm, `${width}cm/${from} で増えている`);
-    for (let k = 1; k < r; k += 1) {
-      assert.ok(table.rows[k].cells[i].totalCm <= table.rows[k - 1].cells[i].totalCm, `${width}cm: ${from} より前では増えていない`);
-    }
-  }
+  // 表を直接走査した結果と一致すること（見落とし・余計な行が無い）。
+  const expected = [];
+  table.widths.forEach((width, i) => {
+    table.rows.forEach((row, k) => {
+      if (k === 0) return;
+      const prev = table.rows[k - 1].cells[i];
+      const cur = row.cells[i];
+      if (!prev.widthShortage && !cur.widthShortage && cur.totalCm > prev.totalCm) {
+        expected.push({ width, from: `${row.value}cm` });
+      }
+    });
+  });
+  assert.ok(expected.length > 0, "切り替わりが少なくとも1つある");
+  assert.deepEqual(steps, expected);
   const tips = derivedTipsFor(guide).join("\n");
-  for (const { width, from } of steps) assert.ok(tips.includes(`${width}cm 幅では裾幅 ${from} から`), "本文に載る");
+  for (const { width, from } of steps) {
+    assert.ok(new RegExp(`${width}cm 幅では裾幅 [^、]*${from}`).test(tips), `${width}cm/${from} が本文に載る`);
+  }
+});
+
+/** base の条件で a と b が同じ段にあるか（テスト側で独立に計算する）。 */
+function sameRow(slug, width, values, a, b) {
+  const res = computeYardage(slug, width, values);
+  const pa = res.placed.find((p) => p.label === a);
+  const pb = res.placed.filter((p) => p.label === b);
+  return pb.some((q) => q.y === pa.y);
+}
+
+test("シャツ: 『半袖から長袖まで変わらない』幅では、袖が身頃の横に収まっている", () => {
+  const guide = getGuide("shirt");
+  const axis = guide.axes.find((a) => a.key === "sleeveLen");
+  const flatTip = derivedTipsFor(guide).find((t) => t.includes("変わりません")) ?? "";
+  const named = [...(flatTip.split("cm 幅では")[0] ?? "").matchAll(/\d+/g)].map((m) => Number(m[0]));
+  const table = buildTable(guide, axis);
+  const flatWidths = table.widths.filter((_, i) => {
+    const vals = table.rows.slice(1).map((r) => r.cells[i].totalCm);
+    return vals.every((v) => v === vals[0]);
+  });
+  assert.deepEqual(named, flatWidths, "本文が挙げる幅 = 表で半袖〜長袖の値が変わらない幅");
+  let claimed = 0;
+  table.widths.forEach((w) => {
+    if (!flatWidths.includes(w)) return;
+    claimed += 1;
+    for (const row of table.rows.slice(1)) {
+      assert.ok(
+        sameRow("shirt", w, { ...guide.base, sleeveLen: row.value }, "前身頃", "袖"),
+        `${w}cm 幅・袖丈 ${row.label}: 袖が身頃と同じ段にある`,
+      );
+    }
+  });
+  assert.ok(claimed > 0, "前提: 値が変わらない幅が少なくとも1つある（無ければ文言が出ないことを別途確認）");
+  assert.ok(!/袖のぶんの差がそのまま/.test(guide.tips.join("")), "表に反証される旧い主張が残っていない");
+});
+
+test("ワンピース: 140cm 幅で大きく減るのは前後の身頃が横に並ぶとき（表と配置で裏づける）", () => {
+  const guide = getGuide("dress");
+  const t = (w) => computeYardage("dress", w, guide.base).totalCm;
+  assert.ok(sameRow("dress", 140, guide.base, "前身頃", "後身頃"), "140cm 幅では身頃が横に並ぶ");
+  assert.ok(!sameRow("dress", 110, guide.base, "前身頃", "後身頃"), "110cm 幅では身頃が縦に積まれる");
+  assert.ok(!sameRow("dress", 90, guide.base, "前身頃", "後身頃"), "90cm 幅では身頃が縦に積まれる");
+  assert.ok(sameRow("dress", 110, guide.base, "前身頃", "袖"), "110cm 幅で減るのは袖が身頃の横に並ぶぶん");
+  assert.ok(t(110) - t(140) > t(90) - t(110), "140cm 幅での減り方の方が大きい");
+});
+
+test("ワンピース: 丈の増え方は、身頃が縦に積まれる幅で 2 枚ぶん・横に並ぶ幅で 1 枚ぶん（丸め込み）", () => {
+  const guide = getGuide("dress");
+  const axis = guide.axes.find((a) => a.key === "bodyLen");
+  const step = axis.rows[1].value - axis.rows[0].value;
+  const table = buildTable(guide, axis);
+  table.widths.forEach((w, i) => {
+    const stacked = !sameRow("dress", w, guide.base, "前身頃", "後身頃");
+    const diffs = table.rows.slice(1).map((r, k) => r.cells[i].totalCm - table.rows[k].cells[i].totalCm);
+    for (const d of diffs) {
+      if (stacked) assert.equal(d, step * 2, `${w}cm 幅（縦積み）は 2 枚ぶん`);
+      else assert.ok(d >= step - 10 && d <= step + 10, `${w}cm 幅（横並び）は 1 枚ぶん±丸め: ${d}`);
+    }
+  });
+});
+
+test("パンツ: 本文の『縦に積まれる／横に並べられる』と長さは配置から出ている", () => {
+  const guide = getGuide("pants");
+  const tips = derivedTipsFor(guide).join("\n");
+  assert.ok(tips.length > 0, "注記が出る");
+  for (const w of FABRIC_WIDTHS) {
+    const res = computeYardage("pants", w, guide.base);
+    const beside = sameRow("pants", w, guide.base, "前パンツ", "後パンツ");
+    const seg = beside ? tips.split("横に並べられる")[1] : tips.split("横に並べられる")[0];
+    assert.ok(seg.includes(`${w}cm 幅で ${res.totalM.toFixed(1)}m`), `${w}cm 幅は${beside ? "横並び" : "縦積み"}側に実測値で載る`);
+  }
+  assert.ok(!/2m を超え|半分近く/.test(guide.tips.join("")), "手書きの数値主張が残っていない");
+});
+
+test("スカート: 『90cm 幅と 110cm 幅の差が大きく開くところが切り替わり』は表と配置で成立する", () => {
+  const guide = getGuide("skirt");
+  const table = buildTable(guide, guide.axes.find((a) => a.key === "hip"));
+  const wide = table.rows.filter((r) => r.cells[0].totalCm - r.cells[1].totalCm >= 50);
+  assert.ok(wide.length > 0, "差が大きく開く行がある");
+  for (const r of wide) {
+    assert.ok(sameRow("skirt", 110, { ...guide.base, hip: r.value }, "前スカート", "後スカート"), `${r.label}: 110cm 幅で前後が横に並ぶ`);
+    assert.ok(!sameRow("skirt", 90, { ...guide.base, hip: r.value }, "前スカート", "後スカート"), `${r.label}: 90cm 幅では並ばない`);
+  }
 });
