@@ -19,6 +19,7 @@ import {
 } from "../presets.mjs";
 // presets.mjs の JSDoc @typedef は allowJs で型として読める。
 import type { BuiltTable } from "../presets.mjs";
+import { SELVAGE_CM } from "@/lib/calc.mjs";
 import { Crumbs, Footer, Plate, Sheet } from "../Chrome";
 import "../yardage.css";
 
@@ -211,8 +212,8 @@ function YardageTable({ table }: { table: BuiltTable }) {
 
       {hasShortage && (
         <p className="paper-note">
-          「幅が足りない」は、そのサイズのパーツが二つ折りにした生地の幅に収まらず、
-          その幅では裁てないことを表します。より広い生地を選ぶか、はぎ合わせを前提に
+          「幅が足りない」は、そのサイズのパーツが、二つ折りにした生地の幅から耳の{" "}
+          {SELVAGE_CM}cm を除いた幅に収まらず、その幅では裁てないことを表します。より広い生地を選ぶか、はぎ合わせを前提に
           型紙を割ってください。はぎ合わせに必要な追加分は表に含めていません。
         </p>
       )}

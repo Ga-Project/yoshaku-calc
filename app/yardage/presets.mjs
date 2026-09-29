@@ -682,11 +682,21 @@ export function axisSpanMeters(guide, axisKey) {
   const first = table.rows[0];
   const last = table.rows[table.rows.length - 1];
   if (!first || !last) throw new Error(`empty axis ${axisKey} on ${guide.slug}`);
-  // 「幅が足りない」セル（表では — と出る）の数値は本文に使わない。
-  const diffs = table.widths.flatMap((_, i) => {
-    const a = first.cells[i];
-    const b = last.cells[i];
-    if (!a || !b) throw new Error(`missing cell on ${guide.slug}`);
+  if (first.cells.length !== last.cells.length) throw new Error(`missing cell on ${guide.slug}`);
+  return spanOfCells(first.cells, last.cells);
+}
+
+/**
+ * 2 行のセルから生地幅ごとの差(m)の最小・最大を取る。「幅が足りない」セル（表では — と出る）は
+ * 数値を本文に使わないので除き、比べられる生地幅が 1 つも無ければ null。
+ * @param {Cell[]} firstCells
+ * @param {Cell[]} lastCells
+ * @returns {{min: number, max: number} | null}
+ */
+export function spanOfCells(firstCells, lastCells) {
+  const diffs = firstCells.flatMap((a, i) => {
+    const b = lastCells[i];
+    if (!b) return [];
     return a.widthShortage || b.widthShortage ? [] : [b.totalM - a.totalM];
   });
   if (diffs.length === 0) return null;

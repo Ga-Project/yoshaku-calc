@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FABRIC_WIDTHS, SELVAGE_CM } from "@/lib/calc.mjs";
 
 // 用尺の読み物セクション（静的テキスト）。
 //
@@ -22,7 +23,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "「わ裁ち」とはどういう意味ですか？",
-    a: "生地を中表に二つ折りにし、折り山（わ）に型紙の中心を合わせて裁つ方法です。左右対称のパーツを一度で 2 枚ぶん裁てるので、実際に使える幅は生地幅の半分になります。このツールの図も、わ裁ちを前提に作業幅＝生地幅÷2 で配置しています。",
+    a: `生地を中表に二つ折りにし、折り山（わ）に型紙の中心を合わせて裁つ方法です。左右対称のパーツを一度で 2 枚ぶん裁てるので、作業幅は生地幅の半分になります。さらに生地の端の耳（織りの硬い部分）は裁断に使いにくいため、このツールは作業幅＝生地幅÷2 から耳の ${SELVAGE_CM}cm を除いた幅にパーツを配置しています。`,
   },
   {
     q: "計算結果の通りに買えば足りますか？",
@@ -37,6 +38,13 @@ export const FAQ: { q: string; a: string }[] = [
     a: "お使いのブラウザの中にだけ保存され、外部には送信されません。次に開いたときは前回の入力が復元されます。URL をコピーすれば、同じ条件を別の端末で開いたり人に渡したりできます。",
   },
 ];
+
+/** 生地幅ごとの呼び名と店頭でよく出会う生地（数値は FABRIC_WIDTHS / SELVAGE_CM から出す）。 */
+const WIDTH_INFO: Record<number, { name: string; fabrics: string }> = {
+  90: { name: "シングル幅", fabrics: "和柄綿、ダブルガーゼ、輸入プリント" },
+  110: { name: "標準幅", fabrics: "綿ブロード、シーチング、リネン" },
+  140: { name: "ダブル幅", fabrics: "ウール、ニット、スーツ地" },
+};
 
 export default function Guide() {
   return (
@@ -68,7 +76,7 @@ export default function Guide() {
         >
           <table className="guide-table">
             <caption>
-              生地幅の呼び名・店頭でよく出会う生地・わ裁ちの作業幅
+              生地幅の呼び名・店頭でよく出会う生地・わ裁ちの作業幅と、耳を除いて並べる幅
             </caption>
             <thead>
               <tr>
@@ -76,27 +84,19 @@ export default function Guide() {
                 <th scope="col">呼び名</th>
                 <th scope="col">よくある生地</th>
                 <th scope="col">わ裁ちの作業幅</th>
+                <th scope="col">耳を除いて並べる幅</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <th scope="row">90cm</th>
-                <td>シングル幅</td>
-                <td>和柄綿、ダブルガーゼ、輸入プリント</td>
-                <td>45cm</td>
-              </tr>
-              <tr>
-                <th scope="row">110cm</th>
-                <td>標準幅</td>
-                <td>綿ブロード、シーチング、リネン</td>
-                <td>55cm</td>
-              </tr>
-              <tr>
-                <th scope="row">140cm</th>
-                <td>ダブル幅</td>
-                <td>ウール、ニット、スーツ地</td>
-                <td>70cm</td>
-              </tr>
+              {FABRIC_WIDTHS.map((w) => (
+                <tr key={w}>
+                  <th scope="row">{w}cm</th>
+                  <td>{WIDTH_INFO[w]?.name}</td>
+                  <td>{WIDTH_INFO[w]?.fabrics}</td>
+                  <td>{w / 2}cm</td>
+                  <td>{w / 2 - SELVAGE_CM}cm</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

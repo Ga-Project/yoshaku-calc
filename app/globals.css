@@ -1296,6 +1296,16 @@ body {
   flex: none;
 }
 
+/* 耳の帯（裁断図の右端の斜線）と同じ見た目の凡例 */
+.legend-swatch--selvage {
+  color: var(--text-dim);
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, currentColor 55%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+}
+
 .stage-figure[role="status"] {
   /* live region; レイアウトは .stage-figure を継承 */
 }

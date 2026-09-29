@@ -12,9 +12,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { FABRIC_WIDTHS, computeYardage, getGarment } from "../lib/calc.mjs";
+import { FABRIC_WIDTHS, SELVAGE_CM, computeYardage, getGarment } from "../lib/calc.mjs";
 import {
   GUIDES,
+  spanOfCells,
   axisSteps,
   axisIncrements,
   baseCells,
@@ -477,10 +478,44 @@ test("幅不足のセルは差・増え方・固定寸法の結果・種別間�
   assert.ok(!spread.some((s) => s.width === 90), "比べられる種別が 1 つしかない 90cm 幅は比率に含めない");
   assert.ok(spread.length > 0, "他の幅では比率が出る");
 
-  // 全て幅不足なら注記は出さない（null）。
-  const allShort = { ...synthetic, axes: [{ ...synthetic.axes[0], rows: [{ value: 136, label: "136cm" }, { value: 140, label: "140cm" }] }] };
-  const t2 = buildTable(allShort, allShort.axes[0]);
-  if (t2.rows.every((r) => r.cells.every((c) => c.widthShortage))) {
-    assert.equal(axisSpanMeters(allShort, "bust"), null);
+  // 全て幅不足なら注記は出さない（null）。実データでは作れないので、セルを直接渡して確かめる。
+  const cell = (w, m, short) => ({ fabricWidth: w, totalCm: m * 100, totalM: m, widthShortage: short });
+  assert.equal(spanOfCells([cell(90, 1, true), cell(110, 1, true)], [cell(90, 2, true), cell(110, 2, true)]), null);
+  assert.deepEqual(
+    spanOfCells([cell(90, 1, true), cell(110, 1, false)], [cell(90, 3, false), cell(110, 1.5, false)]),
+    { min: 0.5, max: 0.5 },
+    "片方の行でも幅不足の生地幅は比べない",
+  );
+});
+
+test("耳の説明は計算の定数と一致する（FAQ・生地幅の表・幅不足の説明・README・裁断図）", () => {
+  const guide = read("app", "Guide.tsx");
+  assert.ok(guide.includes("${SELVAGE_CM}cm を除いた幅にパーツを配置"), "FAQ の耳の幅は SELVAGE_CM から入る");
+  assert.ok(!/作業幅＝生地幅÷2 で配置/.test(guide), "耳を無視した旧い説明が残っていない");
+  assert.ok(guide.includes("{w / 2 - SELVAGE_CM}cm"), "生地幅の表の『並べる幅』は定数から出す");
+  const garmentPage = read("app", "yardage", "[garment]", "page.tsx");
+  assert.ok(garmentPage.includes("{SELVAGE_CM}cm を除いた幅に収まらず"), "幅不足の説明に耳が入る");
+  const readme = read("README.md");
+  assert.ok(readme.includes(`\`SELVAGE_CM\` = ${SELVAGE_CM}cm`), "README の耳の幅が定数と一致");
+  const page = read("app", "page.tsx");
+  assert.ok(/data-selvage[\s\S]{0,80}x=\{padL \+ result\.usableWidth\}/.test(page), "裁断図に使える幅から右端までの耳の帯を描く");
+});
+
+test("はみ出しの印がついたパーツは、必ず耳の帯か生地の外に掛かる（図と警告が食い違わない）", () => {
+  let flagged = 0;
+  for (const g of GUIDES) {
+    for (const axis of g.axes) {
+      for (const row of axis.rows) {
+        for (const w of FABRIC_WIDTHS) {
+          const r = computeYardage(g.slug, w, { ...g.base, [axis.key]: row.value });
+          for (const p of r.placed) {
+            if (!p.overflow) continue;
+            flagged += 1;
+            assert.ok(p.x + p.w > r.workingWidth - SELVAGE_CM, `${g.slug}@${w}: ${p.label} が耳の帯に掛かる`);
+          }
+        }
+      }
+    }
   }
+  assert.ok(flagged > 0, "前提: はみ出しの印がつく組み合わせが表にある");
 });

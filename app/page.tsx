@@ -6,6 +6,7 @@ import {
   FABRIC_WIDTHS,
   computeYardage,
   getGarment,
+  SELVAGE_CM,
 } from "@/lib/calc.mjs";
 import Guide, { FAQ } from "./Guide";
 import JsonLd from "./JsonLd";
@@ -424,6 +425,10 @@ export default function Home() {
                       {item.label}
                     </li>
                   ))}
+                  <li className="legend-item">
+                    <span className="legend-swatch legend-swatch--selvage" aria-hidden="true" />
+                    耳（裁てない部分）
+                  </li>
                 </ul>
 
                 <ul className="notes">
@@ -507,13 +512,14 @@ function Ruler({
   workingWidth: number;
   totalCm: number;
 }) {
-  // 作業幅 = 生地幅/2。目盛りは作業幅方向（横）に 0 / 中間 / 端 を出す。
+  // 作業幅 = 生地幅/2（実物の生地の寸法）。パーツはそこから耳を除いた幅に並べる。
+  // 目盛りは作業幅方向（横）に 0 / 中間 / 端 を出す。
   const mid = Math.round(workingWidth / 2);
   return (
     <div
       className="ruler"
       role="img"
-      aria-label={`製図台の物差し。作業幅 0 から ${workingWidth}cm。必要長さ 約 ${totalCm}cm。`}
+      aria-label={`製図台の物差し。作業幅 0 から ${workingWidth}cm（うち右端の ${SELVAGE_CM}cm は耳）。必要長さ 約 ${totalCm}cm。`}
     >
       <span className="r0">0</span>
       <span style={{ left: "50%" }}>{mid}</span>
@@ -522,7 +528,7 @@ function Ruler({
   );
 }
 
-/** 裁断レイアウト概算図（わ裁ち・作業幅 = 生地幅/2 にパーツを配置）。 */
+/** 裁断レイアウト概算図（わ裁ち・作業幅 = 生地幅/2 から耳を除いた幅にパーツを配置し、耳は帯で示す）。 */
 /** 裁断図のパーツ名の文字サイズ（SVG の cm 座標系）と、枠からの余白・縮小の下限。 */
 const LABEL_FONT = 3.2;
 const LABEL_PAD = 1;
@@ -548,7 +554,7 @@ function LayoutFigure({ result }: { result: CalcResult }) {
     <svg
       viewBox={`0 0 ${vbW} ${vbH}`}
       role="img"
-      aria-label={`生地幅${result.fabricWidth}cm・必要長さ約${result.totalCm}cmの裁断レイアウト概算。${pieceNames}を二つ折りの生地に配置した図。`}
+      aria-label={`生地幅${result.fabricWidth}cm・必要長さ約${result.totalCm}cmの裁断レイアウト概算。${pieceNames}を二つ折りの生地の、耳${SELVAGE_CM}cmを除いた幅に配置した図。`}
       style={{ maxHeight: "64vh" }}
     >
       {/* 生地（作業幅ぶん） */}
@@ -562,6 +568,20 @@ function LayoutFigure({ result }: { result: CalcResult }) {
           stroke: "var(--fabric-line)",
           strokeWidth: 0.5,
         }}
+      />
+      {/* 耳（開いた側の端・裁てない部分）= 右端の斜線の帯。はみ出したパーツはここに掛かって見える */}
+      <defs>
+        <pattern id="selvage-hatch" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="2" style={{ stroke: "var(--text-dim)", strokeWidth: 0.5 }} />
+        </pattern>
+      </defs>
+      <rect
+        data-selvage=""
+        x={padL + result.usableWidth}
+        y={0}
+        width={W - result.usableWidth}
+        height={H}
+        style={{ fill: "url(#selvage-hatch)", opacity: 0.55 }}
       />
       {/* わ（折り山）= 左端の破線 */}
       <line
@@ -669,7 +689,7 @@ function LayoutFigure({ result }: { result: CalcResult }) {
         textAnchor="middle"
         style={{ fill: "var(--text-dim)", fontSize: 3.4 }}
       >
-        {`作業幅 ${W}cm（生地幅 ${result.fabricWidth}cm を二つ折り）`}
+        {`作業幅 ${W}cm（生地幅 ${result.fabricWidth}cm を二つ折り・右端 ${SELVAGE_CM}cm は耳）`}
       </text>
     </svg>
   );
