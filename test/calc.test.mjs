@@ -22,8 +22,8 @@ function defaults(garment) {
   return v;
 }
 
-test("GARMENTS は6種別・各々が入力定義と pieces 関数を持つ", () => {
-  assert.equal(GARMENTS.length, 6);
+test("GARMENTS は7種別・各々が入力定義と pieces 関数を持つ", () => {
+  assert.equal(GARMENTS.length, 7);
   for (const g of GARMENTS) {
     assert.ok(g.id && g.label && typeof g.pieces === "function");
     assert.ok(Array.isArray(g.inputs) && g.inputs.length >= 1);
@@ -63,7 +63,7 @@ test("生地幅が広いほど用尺は短く（または同じに）なる", ()
 
 test("単調性: 入力空間を広く走査しても 90cm >= 110cm >= 140cm が常に成立", () => {
   // shelf packing の行高結合で逆転が起きやすい領域を含めて網羅的にサンプルする
-  // （CTO レビュー B-1 の反例クラスをカバー）。
+  // （以前に行高の結合で逆転が起きた入力と同じ形の組み合わせを含める）。
   const lensA = [40, 53, 62, 80, 105, 140];
   const lensB = [0, 24, 54, 70];
   const circ = [70, 88, 96, 120, 140];
@@ -351,4 +351,145 @@ test("裁断図の下の表記は、どの生地幅でも図の枠に収まる�
   }
   // 見積もり自体の妥当性: 全角だけの文字列は 1 字 = 文字サイズ。
   assert.equal(estimateTextWidth("作業幅", 2), 6);
+});
+
+// ---------------------------------------------------------------------------
+// コート: ジャケットとの違い（丈・ゆとり・ポケット・衿/見返し）が計算に現れること。
+// ---------------------------------------------------------------------------
+
+/** コートとジャケットが共通に受け付ける範囲（どちらでもクランプされない値）。 */
+function sharedRange(key) {
+  const c = getGarment("coat").inputs.find((i) => i.key === key);
+  const j = getGarment("jacket").inputs.find((i) => i.key === key);
+  return { min: Math.max(c.min, j.min), max: Math.min(c.max, j.max) };
+}
+
+test("コート: 入力は着丈・袖丈・バストで、説明に表地のみ・裏地は別と書く", () => {
+  const coat = getGarment("coat");
+  assert.deepEqual(coat.inputs.map((i) => i.key), ["bodyLen", "sleeveLen", "bust"]);
+  for (const i of coat.inputs) assert.ok(i.min <= i.def && i.def <= i.max, `${i.key}: 既定値が範囲内`);
+  assert.ok(coat.blurb.includes("表地のみ") && coat.blurb.includes("裏地は別"), "表地のみ・裏地は別を明示");
+  const labels = computeYardage("coat", 110, {}).placed.map((p) => p.label);
+  assert.ok(labels.includes("ポケット"), "ジャケットに無いポケットを裁つ");
+  assert.equal(labels.length, MAX_PERMUTE_PIECES, "全順番を試せる枚数に収まる");
+});
+
+test("コート: 同じ寸法なら各パーツがジャケット以上の大きさで、衿・見返しは着丈とともに伸びる", () => {
+  const v = { bodyLen: 90, sleeveLen: 58, bust: 96 };
+  const coat = getGarment("coat").pieces(v);
+  const jacket = getGarment("jacket").pieces(v);
+  for (const jp of jacket) {
+    const cp = coat.find((p) => p.label === jp.label);
+    assert.ok(cp, `${jp.label} をコートも裁つ`);
+    assert.ok(cp.w >= jp.w && cp.h >= jp.h, `${jp.label}: コート ${cp.w}x${cp.h} >= ジャケット ${jp.w}x${jp.h}`);
+  }
+  const body = (pcs) => pcs.find((p) => p.label === "前身頃");
+  assert.ok(body(coat).w > body(jacket).w, "身頃のゆとりがジャケットより大きい");
+  const facing = (len) => getGarment("coat").pieces({ ...v, bodyLen: len }).find((p) => p.label === "衿・見返し").h;
+  assert.ok(facing(120) > facing(80), "衿・見返しは着丈に比例する（ジャケットの固定長と違う）");
+});
+
+test("コート: 同じ寸法ならジャケットより短くならない（共通の入力範囲を走査）", () => {
+  const L = sharedRange("bodyLen");
+  const S = sharedRange("sleeveLen");
+  const B = sharedRange("bust");
+  let checked = 0;
+  let longer = 0;
+  for (let bodyLen = L.min; bodyLen <= L.max; bodyLen += 5) {
+    for (let sleeveLen = S.min; sleeveLen <= S.max; sleeveLen += 4) {
+      for (let bust = B.min; bust <= B.max; bust += 4) {
+        const v = { bodyLen, sleeveLen, bust };
+        for (const w of FABRIC_WIDTHS) {
+          const c = computeYardage("coat", w, v).totalCm;
+          const j = computeYardage("jacket", w, v).totalCm;
+          assert.ok(c >= j, `${JSON.stringify(v)}@${w}: コート ${c}cm >= ジャケット ${j}cm`);
+          if (c > j) longer += 1;
+          checked += 1;
+        }
+      }
+    }
+  }
+  assert.ok(checked > 1000, `走査した組み合わせ: ${checked}`);
+  assert.ok(longer > checked / 2, `違いが計算に現れる（長くなる組み合わせが過半: ${longer}/${checked}）`);
+});
+
+test("コート: 既定値では 90/110/140cm で必要量が単調非増加、幅不足は使える幅との比較どおりに印がつく", () => {
+  const coat = getGarment("coat");
+  for (const v of [defaults(coat), ...grid(coat)]) {
+    let prev = Infinity;
+    for (const w of FABRIC_WIDTHS) {
+      const r = computeYardage("coat", w, v);
+      assert.ok(r.totalCm <= prev, `${JSON.stringify(v)}@${w}: ${r.totalCm} <= ${prev}`);
+      prev = r.totalCm;
+      const over = r.placed.filter((p) => p.w > r.usableWidth);
+      assert.equal(r.widthShortage, over.length > 0, `${JSON.stringify(v)}@${w}: 幅不足の印は使える幅超えと一致`);
+      if (r.widthShortage) assert.ok(r.notes[0].includes("生地幅"), "幅不足の注記を先頭に出す");
+    }
+  }
+  const at = FABRIC_WIDTHS.map((w) => computeYardage("coat", w, {}));
+  assert.ok(at.every((r) => !r.widthShortage), "既定値はどの幅にも収まる");
+  assert.ok(at[0].totalCm > at[at.length - 1].totalCm, "広い幅の方が短い");
+});
+
+test("コート: 大きいサイズは 90cm 幅で身頃が収まらず、140cm 幅なら収まる", () => {
+  const big = { bodyLen: 95, sleeveLen: 58, bust: 136 };
+  const narrow = computeYardage("coat", 90, big);
+  assert.equal(narrow.widthShortage, true);
+  assert.ok(narrow.placed.some((p) => p.overflow && p.label.includes("身頃")));
+  assert.equal(computeYardage("coat", 140, big).widthShortage, false);
+});
+
+test("コート: 寸法を増やして必要量が減らない（各入力を 1cm 刻み・全生地幅）", () => {
+  const coat = getGarment("coat");
+  for (const input of coat.inputs) {
+    for (const w of FABRIC_WIDTHS) {
+      let prev = -Infinity;
+      for (let x = input.min; x <= input.max; x += 1) {
+        const t = computeYardage("coat", w, { ...defaults(coat), [input.key]: x }).totalCm;
+        assert.ok(t >= prev, `coat.${input.key}@${w}: ${x}cm で ${prev}→${t}`);
+        prev = t;
+      }
+    }
+  }
+});
+
+test("コート: 全入力範囲（1cm 刻み）で、ジャケットの各パーツ以上の大きさのパーツを持ち、枚数は全順番を試せる範囲", () => {
+  // 1 つの詰め順に固定した棚詰めでは、パーツを大きくして逆に短くなることがある
+  // （例: 幅 10 に A(5×1)・B(5×10)・C(5×10) の順で 20、A を幅 6 にすると 11）。
+  // 根拠はそこではなく、全ての詰め順を試した最小が「最適な棚の分け方」の長さと一致し、
+  // その最適値はパーツを縮めても取り除いても増えない（同じ分け方がそのまま使える）こと。
+  // 選んだ幅以下の生地幅での最小も同じ理由で保たれる。したがってコートの各パーツが
+  // ジャケットの対応するパーツ以上なら、用尺もジャケット以上になる。全ての詰め順を試すのは
+  // 枚数が上限以内のときだけなので、両方の枚数が上限以内であることも確かめる。
+  const L = sharedRange("bodyLen");
+  const S = sharedRange("sleeveLen");
+  const B = sharedRange("bust");
+  let checked = 0;
+  for (let bodyLen = L.min; bodyLen <= L.max; bodyLen += 1) {
+    for (let sleeveLen = S.min; sleeveLen <= S.max; sleeveLen += 1) {
+      for (let bust = B.min; bust <= B.max; bust += 1) {
+        const v = { bodyLen, sleeveLen, bust };
+        const coat = getGarment("coat").pieces(v);
+        const jacket = getGarment("jacket").pieces(v);
+        assert.ok(coat.length <= MAX_PERMUTE_PIECES, `${JSON.stringify(v)}: コートの枚数が上限以内`);
+        assert.ok(jacket.length <= MAX_PERMUTE_PIECES, `${JSON.stringify(v)}: ジャケットの枚数が上限以内`);
+        const used = new Set();
+        for (const jp of jacket) {
+          const k = coat.findIndex((cp, i) => !used.has(i) && cp.label === jp.label && cp.w >= jp.w && cp.h >= jp.h);
+          assert.ok(k >= 0, `${JSON.stringify(v)}: ${jp.label} に対応するコートのパーツが同じ大きさ以上`);
+          used.add(k);
+        }
+        checked += 1;
+      }
+    }
+  }
+  assert.equal(checked, (L.max - L.min + 1) * (S.max - S.min + 1) * (B.max - B.min + 1));
+});
+
+test("種別の絵文字は重複せず、コートは 🧥（ジャケットはコートの絵を使わない）", () => {
+  const emojis = GARMENTS.map((g) => g.emoji);
+  assert.equal(new Set(emojis).size, emojis.length, "絵文字が重複しない");
+  assert.equal(getGarment("coat").emoji, "🧥");
+  assert.notEqual(getGarment("jacket").emoji, "🧥");
+  assert.ok(getGarment("coat").blurb.includes("二枚袖"), "袖の 2 枚が二枚袖（上袖・下袖）だと分かる");
 });

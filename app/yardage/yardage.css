@@ -252,6 +252,11 @@
   white-space: nowrap;
 }
 
+/* 表見出しの語のかたまり。語の途中（「バス／ト」等）で折り返さない。 */
+.yardage-keep {
+  white-space: nowrap;
+}
+
 /* トップの種別ボタンと同じ絵文字を添え、同一の種別だと分かるようにする。 */
 .yardage-emoji {
   margin-inline-end: var(--sp-2);

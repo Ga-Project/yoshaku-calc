@@ -521,3 +521,115 @@ test("はみ出しの印がついたパーツは、必ず耳の帯か生地の�
   }
   assert.ok(flagged > 0, "前提: はみ出しの印がつく組み合わせが表にある");
 });
+
+// ---------------------------------------------------------------------------
+// コートの早見表: ページが出ること、本文の主張が計算と配置で裏づけられること。
+// ---------------------------------------------------------------------------
+
+test("コートの早見表ページが生成対象・サイトマップ・一覧に入る", () => {
+  assert.ok(getGuide("coat"), "GUIDES に coat がある");
+  // ページ生成・サイトマップ・一覧（構造化データ含む）は GUIDES から機械的に作る。
+  // 手書きのルート一覧に戻ると coat だけ出ない、が起きるのでその前提を固定する。
+  const garmentPage = read("app", "yardage", "[garment]", "page.tsx");
+  assert.ok(/generateStaticParams\(\)\s*\{\s*return GUIDES\.map\(\(g\) => \(\{ garment: g\.slug \}\)\)/.test(garmentPage));
+  const sitemap = read("app", "sitemap.ts");
+  assert.ok(/GUIDES\.map\(\(g\) => \(\{\s*url: `\$\{SITE_URL\}yardage\/\$\{g\.slug\}\/`/.test(sitemap));
+  const index = read("app", "yardage", "page.tsx");
+  assert.ok(index.includes("itemListElement: GUIDES.map("), "一覧の構造化データも GUIDES から作る");
+  assert.ok(buildOverview().rows.some((r) => r.guide.slug === "coat"), "代表的な一着の比較表に入る");
+  for (const src of [read("README.md"), read("app", "layout.tsx"), index]) {
+    assert.ok(src.includes("コート"), "対象の衣服の列挙にコートが入る");
+  }
+});
+
+test("コートの lead『同じバスト・着丈・袖丈のジャケットと比べて同じか多め』は表の全寸法で成立する", () => {
+  // 全入力範囲での成立は test/calc.test.mjs（パーツの大小関係と計算結果の格子走査）で固定している。
+  const guide = getGuide("coat");
+  assert.ok(
+    /同じバスト・着丈・袖丈のジャケットと比べて、必要な生地は同じか多め/.test(guide.lead),
+    "前提: lead がこの主張をしている（同じになる場合と矛盾しない言い方）",
+  );
+  for (const axis of guide.axes) {
+    for (const row of axis.rows) {
+      const v = { ...guide.base, [axis.key]: row.value };
+      for (const w of FABRIC_WIDTHS) {
+        const c = computeYardage("coat", w, v).totalCm;
+        const j = computeYardage("jacket", w, v).totalCm;
+        assert.ok(c >= j, `${axis.key}=${row.value}@${w}: コート ${c} >= ジャケット ${j}`);
+      }
+    }
+  }
+});
+
+test("コートの注記『身頃が収まらない組み合わせは表に印が出る』は表と配置で成立する", () => {
+  const guide = getGuide("coat");
+  assert.ok(guide.tips.some((t) => t.includes("表にその印が出ます")), "前提: 注記がこの主張をしている");
+  const table = buildTable(guide, guide.axes.find((a) => a.key === "bust"));
+  const short = table.rows.flatMap((r) =>
+    r.cells.filter((c) => c.widthShortage).map((c) => ({ value: r.value, width: c.fabricWidth })),
+  );
+  assert.ok(short.length > 0, "幅不足の組み合わせが表にある");
+  for (const { value, width } of short) {
+    const res = computeYardage("coat", width, { ...guide.base, bust: value });
+    assert.ok(res.placed.some((p) => p.overflow && p.label.includes("身頃")), `${value}@${width}: 収まらないのは身頃`);
+  }
+});
+
+test("コートの derivedTips: 増え方は表の実測、『縦に積まれる』幅は配置の実測と一致する", () => {
+  const guide = getGuide("coat");
+  const tips = derivedTipsFor(guide);
+  const incTip = tips.find((t) => t.includes("増え方")) ?? "";
+  const axis = guide.axes.find((a) => a.key === "bodyLen");
+  const step = axis.rows[1].value - axis.rows[0].value;
+  assert.ok(incTip.includes(`着丈を ${step}cm ずつ`), "刻みが行の値から出ている");
+  for (const inc of axisIncrements(guide, "bodyLen")) {
+    const range = inc.min === inc.max ? `${inc.min}cm` : `${inc.min}〜${inc.max}cm`;
+    assert.ok(incTip.includes(`${inc.width}cm 幅で ${range}`), `${inc.width}cm 幅の増え方 ${range} が本文に載る`);
+  }
+  const stackTip = tips.find((t) => t.includes("縦に積まれます")) ?? "";
+  const stacked = FABRIC_WIDTHS.filter((w) => !sameRow("coat", w, guide.base, "前身頃", "後身頃"));
+  assert.ok(stacked.length > 0, "前提: 前後の身頃が縦に積まれる幅がある");
+  if (stacked.length === FABRIC_WIDTHS.length) {
+    assert.ok(stackTip.includes("どの生地幅でも"), "全ての幅で縦に積まれるなら『どの生地幅でも』と書く");
+  } else {
+    const named = [...(stackTip.split("cm 幅で")[0] ?? "").matchAll(/\d+/g)].map((m) => Number(m[0]));
+    assert.deepEqual(named, stacked, "本文が挙げる幅 = 配置で身頃が縦に積まれる幅");
+  }
+  assert.ok(stackTip.includes("前後の身頃 2 枚ぶん以上ずつ増えます"), "前提: 本文がこの主張をしている");
+  // 「身頃 2 枚ぶん以上ずつ増える」: 縦に積まれる幅では、隣り合う全ての行で増え方が刻みの 2 倍以上。
+  const table = buildTable(guide, axis);
+  assert.ok(table.rows.length >= 2, "隣り合う行の組がある");
+  for (const w of stacked) {
+    const i = table.widths.indexOf(w);
+    for (let k = 1; k < table.rows.length; k += 1) {
+      const d = table.rows[k].cells[i].totalCm - table.rows[k - 1].cells[i].totalCm;
+      assert.ok(d >= step * 2, `${w}cm 幅・${table.rows[k].label}: 増え方 ${d}cm >= ${step * 2}cm`);
+    }
+  }
+});
+
+test("ジャケットの着丈別の表から、コートの早見表へ案内する", () => {
+  const jacket = getGuide("jacket");
+  const axis = jacket.axes.find((a) => a.key === "bodyLen");
+  assert.ok(axis.rows.some((r) => r.label.includes("コート寄り")), "前提: コート寄りの丈の行がある");
+  const table = buildTable(jacket, axis);
+  assert.deepEqual(
+    table.seeAlso && { slug: table.seeAlso.slug, name: table.seeAlso.name },
+    { slug: "coat", name: getGuide("coat").searchName },
+    "案内先はコートの早見表",
+  );
+  const garmentPage = read("app", "yardage", "[garment]", "page.tsx");
+  assert.ok(garmentPage.includes("href={`/yardage/${table.seeAlso.slug}/`}"), "ページが案内のリンクを出す");
+  const broken = { ...axis, seeAlso: { slug: "no-such", text: "" } };
+  assert.throws(() => buildTable(jacket, broken), /unknown seeAlso/, "案内先が無ければビルドを落とす");
+});
+
+test("表の見出しは語の途中で折り返さないかたまりで組む（全種別共通の部品）", () => {
+  const garmentPage = read("app", "yardage", "[garment]", "page.tsx");
+  assert.ok(/<h2 id=\{headingId\(table\.caption\)\}>\s*<CaptionText caption=\{table\.caption\} \/>/.test(garmentPage));
+  assert.ok(/\.yardage-keep\s*\{\s*white-space: nowrap;/.test(read("app", "yardage", "yardage.css")));
+  // かたまりの分け方（本題と括弧内の「・」区切り）が全ての見出しで成り立つ形になっている。
+  for (const { table } of allTables()) {
+    assert.ok(/^[^（]+（[^（）]+）$/.test(table.caption), `${table.caption}: 本題（条件・条件）の形`);
+  }
+});

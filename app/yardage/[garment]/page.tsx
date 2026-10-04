@@ -148,10 +148,11 @@ function YardageTable({ table }: { table: BuiltTable }) {
   const hasShortage = table.rows.some((r) => r.cells.some((c) => c.widthShortage));
   return (
     <section className="paper-section" aria-labelledby={headingId(table.caption)}>
-      <h2 id={headingId(table.caption)}>{table.caption}</h2>
+      <h2 id={headingId(table.caption)}>
+        <CaptionText caption={table.caption} />
+      </h2>
       <p className="paper-note">{table.fixedNote}（10cm 単位に切り上げた購入の目安）。</p>
 
-      {/* 横スクロール領域はキーボードでも送れるよう、フォーカス可能な region にする */}
       {/* 横スクロール領域はキーボードでも送れるよう、フォーカス可能な region にする。
           名前は見出しを参照させ、同じ文言を読み上げで重複させない。 */}
       <div
@@ -210,6 +211,14 @@ function YardageTable({ table }: { table: BuiltTable }) {
         </table>
       </div>
 
+      {table.seeAlso && (
+        <p className="paper-note">
+          {table.seeAlso.text}
+          <Link className="yardage-keep" href={`/yardage/${table.seeAlso.slug}/`}>{table.seeAlso.name}の用尺早見表</Link>
+          で確かめてください。
+        </p>
+      )}
+
       {hasShortage && (
         <p className="paper-note">
           「幅が足りない」は、そのサイズのパーツが、二つ折りにした生地の幅から耳の{" "}
@@ -218,6 +227,33 @@ function YardageTable({ table }: { table: BuiltTable }) {
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * 表の見出し。日本語は語の途中でも折り返すため、狭い画面で「バス／ト」のように割れる。
+ * 本題（例: バスト別の用尺）と括弧内の各条件（例: 着丈 95cm）をそれぞれ折り返さない
+ * かたまりにし、折り返しはかたまりの間（括弧の前と「・」の後）だけで起きるようにする。
+ */
+function CaptionText({ caption }: { caption: string }) {
+  const m = caption.match(/^(.*?)（(.*)）$/);
+  if (!m) return <span className="yardage-keep">{caption}</span>;
+  const [, main, inner] = m;
+  const parts = (inner ?? "").split("・");
+  return (
+    <>
+      <span className="yardage-keep">{main}</span>
+      <wbr />
+      （
+      {parts.map((part, i) => (
+        <span key={i}>
+          <span className="yardage-keep">{part}</span>
+          {i < parts.length - 1 ? "・" : ""}
+          {i < parts.length - 1 && <wbr />}
+        </span>
+      ))}
+      ）
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-// ビルド成果物（out/）に OGP 画像が実際に載っているかを検査する。
+// ビルド成果物（out/）に OGP 画像が実際に載っているか、早見表の全ページが出ているかを検査する。
 //
 // なぜソースではなく成果物を見るか:
 //   metadata をソース文字列で検査すると「書き方」を縛ることになる。共通化した
@@ -102,5 +102,61 @@ for (const page of targets) {
   if (canonical !== expectedUrl) fail(`${where}: canonical が ${canonical}（配信先は ${expectedUrl}）`);
 }
 
+// 早見表は GUIDES の全種別ぶんが出力され、サイトマップにも載っていること。
+// 上の検査は「出たページ」しか見ないので、種別を足してページが出なかった場合は素通りする。
+// 期待するページの一覧はソースの GUIDES から取り、成果物と突き合わせる。
+const { GUIDES } = await import("../app/yardage/presets.mjs");
+const sitemapPath = join(outDir, "sitemap.xml");
+const sitemap = existsSync(sitemapPath) ? readFileSync(sitemapPath, "utf8") : "";
+if (!sitemap) fail("out/sitemap.xml が無い");
+for (const { slug } of GUIDES) {
+  const rel = join("yardage", slug, "index.html");
+  if (!pages.includes(join(outDir, rel))) fail(`out/${rel} が無い（早見表 ${slug} が出力されていない）`);
+  const url = `${BASE}/yardage/${slug}/`;
+  if (sitemap && !sitemap.includes(`<loc>${url}</loc>`)) fail(`sitemap.xml に ${url} が無い`);
+}
+
+// サイト内リンクの行き先が out/ に実在すること。
+// リンクの組み立て（href のテンプレート）を壊してもビルドは通り、壊れたリンクがそのまま
+// 配信される。ソースの書き方ではなく、出力された <a href> を実ファイルと突き合わせる。
+//   - basePath 配下の絶対パス: クエリ・フラグメントを落とし、ディレクトリなら index.html を探す
+//   - ページ内リンク（#id）: 同じ HTML にその id があること
+//   - 外部 URL（http(s)://・mailto: 等）は対象外
+//   - basePath の外を指すルート相対パスは、配信先では別サイトに飛ぶので壊れたリンクとして扱う。
+//     例外は 404 ページの href="/" だけ（既知の問題で、別に直す。ここで黙って許す範囲を広げない）。
+const BASE_PATH = process.env.PAGES_BASE_PATH || "";
+const KNOWN_BROKEN = new Map([...NO_URL_PAGES].map((p) => [p, new Set(["/"])]));
+let linkCount = 0;
+for (const page of pages) {
+  const html = readFileSync(page, "utf8");
+  const rel = relative(outDir, page);
+  for (const m of html.matchAll(/<a\b[^>]*?\shref="([^"]*)"/g)) {
+    const href = (m[1] ?? "").replace(/&amp;/g, "&");
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) continue;
+    linkCount += 1;
+    if (href.startsWith("#")) {
+      const id = href.slice(1);
+      if (!id || !html.includes(`id="${id}"`)) fail(`${rel}: ページ内リンク ${href} の行き先が無い`);
+      continue;
+    }
+    if (!href.startsWith("/")) {
+      fail(`${rel}: 相対パスのリンク ${href}（サイト内リンクは basePath 付きの絶対パスで出る想定）`);
+      continue;
+    }
+    if (KNOWN_BROKEN.get(rel)?.has(href)) continue;
+    const path = href.replace(/[?#].*$/, "");
+    if (BASE_PATH && path !== BASE_PATH && !path.startsWith(`${BASE_PATH}/`)) {
+      fail(`${rel}: リンク ${href} が basePath（${BASE_PATH}）の外を指している`);
+      continue;
+    }
+    const inner = decodeURIComponent(path.slice(BASE_PATH.length)).replace(/^\/+/, "");
+    const target = join(outDir, inner);
+    const exists =
+      (existsSync(target) && statSync(target).isFile()) || existsSync(join(target, "index.html"));
+    if (!exists) fail(`${rel}: リンク ${href} の行き先 out/${inner} が無い`);
+  }
+}
+if (linkCount === 0) fail("検査したサイト内リンクが 1 つも無い");
+
 if (failed) process.exit(1);
-console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている`);
+console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている（サイト内リンク ${linkCount} 件の行き先も確認）`);

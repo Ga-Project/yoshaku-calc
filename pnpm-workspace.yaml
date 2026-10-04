@@ -9,7 +9,8 @@
 #                  `next lint` / install の build script に必要。
 
 # auditConfig:
-#   CI の `pnpm audit --audit-level high` は high/critical で落ちる。ここに載せた GHSA だけが
+#   公開前の完成チェックで手元から実行する `pnpm audit --audit-level high` は high/critical で
+#   落ちる（GitHub Actions の workflow には audit の手順は無い）。ここに載せた GHSA だけが
 #   exit 0 に寄与する。載せてよいのは「dev ツール専用 / ビルド時のみ / Next サーバ経路
 #   (output:"export" では未起動)」で、静的書き出しの出荷物(out/)の攻撃面に到達しないものだけ。
 #   本製品は GitHub Pages が out/ を配信するのみで Next サーバを持たない。

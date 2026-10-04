@@ -28,6 +28,7 @@ import { FABRIC_WIDTHS, computeYardage, getGarment } from "../../lib/calc.mjs";
  * @property {string} rowHeader 行見出し列のラベル（例: "バスト"）
  * @property {string} fixedNote 固定した寸法の説明
  * @property {AxisRow[]} rows
+ * @property {{slug: string, text: string}} [seeAlso] 表のすぐ下に出す、関連する種別の早見表への案内
  */
 
 /**
@@ -298,12 +299,86 @@ export const GUIDES = [
           { value: 76, label: "76cm（ロング）" },
           { value: 88, label: "88cm（コート寄り）" },
         ],
+        seeAlso: {
+          slug: "coat",
+          text: "丈の長い上着は、身頃のゆとりや見返しの長さ、ポケットのぶんがジャケットと違います。",
+        },
       },
     ],
     tips: [
       "表の数字は表地だけの用尺です。裏地はおおむね同じか少し少なめ、接着芯は前身頃と衿・見返しぶんを別途見積もってください。",
       "身頃が生地幅に収まらない組み合わせでは、表にその印が出ます。その場合は広い生地を選ぶか、はぎ合わせを前提に型紙を割る必要があります。",
     ],
+  },
+  {
+    slug: "coat",
+    searchName: "コート",
+    description:
+      "コート（表地）に必要な生地の長さ（用尺）を、着丈・バストと生地幅 90／110／140cm の組み合わせで一覧にした早見表。ウール地・ツイード・コート地を買う前の見積りに。",
+    lead: "コートは着丈が長く、服の上に重ねるぶん身頃も袖もゆとりを大きく取ります。見返しも着丈に沿って長くなるため、同じバスト・着丈・袖丈のジャケットと比べて、必要な生地は同じか多めになります。",
+    pieces:
+      "前身頃・後身頃を「わ」で 1 枚ずつ、二枚袖の上袖と下袖を 1 枚ずつ（二つ折りの生地から左右ぶんを一度に裁ちます）、衿と見返しを 1 組、腰ポケットを 1 組。ここでの用尺は表地のみで、裏地・芯地は別に必要です。",
+    base: { bodyLen: 95, sleeveLen: 58, bust: 96 },
+    axes: [
+      {
+        key: "bodyLen",
+        caption: "着丈別の用尺（バスト 96cm・袖丈 58cm）",
+        rowHeader: "着丈",
+        fixedNote: "バスト 96cm・袖丈 58cm で固定したときの必要な長さ",
+        rows: [
+          { value: 80, label: "80cm（ハーフ）" },
+          { value: 95, label: "95cm（ひざ丈）" },
+          { value: 110, label: "110cm（ミモレ）" },
+          { value: 125, label: "125cm（ロング）" },
+        ],
+      },
+      {
+        key: "bust",
+        caption: "バスト別の用尺（着丈 95cm・袖丈 58cm）",
+        rowHeader: "バスト",
+        fixedNote: "着丈 95cm・袖丈 58cm で固定したときの必要な長さ",
+        rows: [
+          { value: 84, label: "84cm" },
+          { value: 96, label: "96cm" },
+          { value: 108, label: "108cm" },
+          { value: 120, label: "120cm" },
+          { value: 136, label: "136cm" },
+        ],
+      },
+    ],
+    tips: [
+      "表の数字は表地だけの用尺です。裏地（身頃・袖ぶん）と接着芯（前身頃・衿・見返しぶん）は、別に見積もってください。",
+      "身頃が生地幅に収まらない組み合わせでは、表にその印が出ます。その場合は広い生地を選ぶか、はぎ合わせを前提に型紙を割る必要があります。",
+    ],
+    // 増え方の数字は表から導出する。手で書くと詰め方の改善で同じページの表と食い違う。
+    derivedTips: (h) => {
+      const incs = h.axisIncrements("bodyLen");
+      const step = h.axisStep("bodyLen");
+      const range = (i) => (i.min === i.max ? `${i.min}cm` : `${i.min}〜${i.max}cm`);
+      /** @type {string[]} */
+      const tips = [];
+      if (incs.length > 0) {
+        tips.push(
+          `着丈を ${step}cm ずつ伸ばしたこの表では、必要な長さの増え方が ${incs
+            .map((i) => `${i.width}cm 幅で ${range(i)}`)
+            .join("、")}です（10cm 単位に丸めています）。`,
+        );
+      }
+      // 「縦に積まれる」幅は配置から導出する（詰め方や係数で変わる）。
+      const stacked = h
+        .baseCells()
+        .filter((c) => !h.sideBySide(c.fabricWidth, "前身頃", "後身頃"))
+        .map((c) => c.fabricWidth);
+      const all = stacked.length === FABRIC_WIDTHS.length;
+      if (stacked.length > 0) {
+        tips.push(
+          all
+            ? "表の標準的な寸法では、どの生地幅でも前後の身頃が縦に積まれます。そのため着丈を伸ばすと、必要な長さは前後の身頃 2 枚ぶん以上ずつ増えます。"
+            : `表の標準的な寸法では、${stacked.join("・")}cm 幅で前後の身頃が縦に積まれます。その幅では着丈を伸ばすと、必要な長さは前後の身頃 2 枚ぶん以上ずつ増えます。`,
+        );
+      }
+      return tips;
+    },
   },
   {
     slug: "apron",
@@ -394,6 +469,7 @@ export const GUIDES = [
  * @property {string} fixedNote
  * @property {number[]} widths
  * @property {TableRow[]} rows
+ * @property {{slug: string, text: string, name: string} | null} seeAlso 関連する早見表への案内（name は案内先の呼び名）
  */
 
 /** 深いリンクを開くときの生地幅（店頭で最も一般的な標準幅）。表の見出しにも明記する。 */
@@ -447,12 +523,21 @@ export function buildTable(guide, axis) {
     };
   });
 
+  // 案内先が無ければリンク切れになるので、ここで例外にしてビルドを落とす。
+  let seeAlso = null;
+  if (axis.seeAlso) {
+    const target = GUIDES.find((g) => g.slug === axis.seeAlso?.slug);
+    if (!target) throw new Error(`unknown seeAlso: ${guide.slug}.${axis.key} -> ${axis.seeAlso.slug}`);
+    seeAlso = { ...axis.seeAlso, name: target.searchName };
+  }
+
   return {
     caption: axis.caption,
     rowHeader: axis.rowHeader,
     fixedNote: axis.fixedNote,
     widths: [...FABRIC_WIDTHS],
     rows,
+    seeAlso,
   };
 }
 
