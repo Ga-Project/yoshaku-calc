@@ -21,6 +21,8 @@ auditConfig:
     - GHSA-3jxr-9vmj-r5cp   # brace-expansion DoS
     - GHSA-mh99-v99m-4gvg   # brace-expansion DoS
     - GHSA-rgw5-rvv9-x895   # brace-expansion DoS
+    - GHSA-6j4f-fj2g-mc7p   # brace-expansion DoS (parseCommaParts 再帰)
+    - GHSA-qhr7-859c-m2p7   # brace-expansion DoS
     - GHSA-5j98-mcp5-4vw2   # glob CLI(-c)注入・ライブラリ利用のみ
     - GHSA-2883-xcg3-v3hh   # js-yaml (eslint 設定パース時)
     - GHSA-52cp-r559-cp3m   # js-yaml
