@@ -211,19 +211,19 @@ function YardageTable({ table }: { table: BuiltTable }) {
         </table>
       </div>
 
-      {table.seeAlso && (
-        <p className="paper-note">
-          {table.seeAlso.text}
-          <Link className="yardage-keep" href={`/yardage/${table.seeAlso.slug}/`}>{table.seeAlso.name}の用尺早見表</Link>
-          で確かめてください。
-        </p>
-      )}
-
       {hasShortage && (
         <p className="paper-note">
           「幅が足りない」は、そのサイズのパーツが、二つ折りにした生地の幅から耳の{" "}
           {SELVAGE_CM}cm を除いた幅に収まらず、その幅では裁てないことを表します。より広い生地を選ぶか、はぎ合わせを前提に
           型紙を割ってください。はぎ合わせに必要な追加分は表に含めていません。
+        </p>
+      )}
+
+      {table.seeAlso && (
+        <p className="paper-note">
+          {table.seeAlso.text}
+          <Link className="yardage-keep" href={`/yardage/${table.seeAlso.slug}/`}>{table.seeAlso.name}の用尺早見表</Link>
+          で確かめてください。
         </p>
       )}
     </section>
