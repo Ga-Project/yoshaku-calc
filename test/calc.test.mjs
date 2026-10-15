@@ -22,8 +22,8 @@ function defaults(garment) {
   return v;
 }
 
-test("GARMENTS は7種別・各々が入力定義と pieces 関数を持つ", () => {
-  assert.equal(GARMENTS.length, 7);
+test("GARMENTS は8種別・各々が入力定義と pieces 関数を持つ", () => {
+  assert.equal(GARMENTS.length, 8);
   for (const g of GARMENTS) {
     assert.ok(g.id && g.label && typeof g.pieces === "function");
     assert.ok(Array.isArray(g.inputs) && g.inputs.length >= 1);
@@ -492,4 +492,48 @@ test("種別の絵文字は重複せず、コートは 🧥（ジャケットは
   assert.equal(getGarment("coat").emoji, "🧥");
   assert.notEqual(getGarment("jacket").emoji, "🧥");
   assert.ok(getGarment("coat").blurb.includes("二枚袖"), "袖の 2 枚が二枚袖（上袖・下袖）だと分かる");
+});
+
+// ---------------------------------------------------------------------------
+// ベスト: 袖を持たず、前後の身頃と見返しを裁つ。
+// ---------------------------------------------------------------------------
+
+test("ベスト: 入力は着丈・バストだけで、前後の身頃と見返しを裁ち、袖は持たない", () => {
+  const vest = getGarment("vest");
+  assert.deepEqual(vest.inputs.map((i) => i.key), ["bodyLen", "bust"]);
+  for (const i of vest.inputs) assert.ok(i.min <= i.def && i.def <= i.max, `${i.key}: 既定値が範囲内`);
+  assert.ok(vest.blurb.includes("袖なし") && vest.blurb.includes("表地のみ") && vest.blurb.includes("裏地は別"));
+  const labels = computeYardage("vest", 110, {}).placed.map((p) => p.label);
+  assert.deepEqual([...labels].sort(), ["前身頃", "後身頃", "見返し"].sort());
+  assert.ok(labels.length <= MAX_PERMUTE_PIECES, "全順番を試せる枚数に収まる");
+});
+
+test("ベスト: 着丈・バストを増やしても必要量は減らず、広い生地幅ほど短い（1cm 刻み・全生地幅）", () => {
+  const vest = getGarment("vest");
+  for (const input of vest.inputs) {
+    for (const w of FABRIC_WIDTHS) {
+      let prev = -Infinity;
+      for (let x = input.min; x <= input.max; x += 1) {
+        const t = computeYardage("vest", w, { ...defaults(vest), [input.key]: x }).totalCm;
+        assert.ok(t >= prev, `vest.${input.key}@${w}: ${x}cm で ${prev}→${t}`);
+        prev = t;
+      }
+    }
+  }
+  for (const v of [defaults(vest), ...grid(vest)]) {
+    let prev = Infinity;
+    for (const w of FABRIC_WIDTHS) {
+      const r = computeYardage("vest", w, v);
+      assert.ok(r.totalCm <= prev, `${JSON.stringify(v)}@${w}: ${r.totalCm} <= ${prev}`);
+      prev = r.totalCm;
+      const over = r.placed.filter((p) => p.w > r.usableWidth);
+      assert.equal(r.widthShortage, over.length > 0, "幅不足の印は使える幅超えと一致");
+    }
+  }
+});
+
+test("ベスト: 最も大きい寸法でも 90cm 幅の使える幅に身頃が収まる（早見表に幅不足の印を出す必要がない）", () => {
+  const vest = getGarment("vest");
+  const maxV = Object.fromEntries(vest.inputs.map((i) => [i.key, i.max]));
+  for (const w of FABRIC_WIDTHS) assert.equal(computeYardage("vest", w, maxV).widthShortage, false, `${w}cm 幅`);
 });

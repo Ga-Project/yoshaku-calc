@@ -633,3 +633,50 @@ test("表の見出しは語の途中で折り返さないかたまりで組む�
     assert.ok(/^[^（]+（[^（）]+）$/.test(table.caption), `${table.caption}: 本題（条件・条件）の形`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// ベストの早見表: ページが出ること、本文の主張が計算と配置で裏づけられること。
+// ---------------------------------------------------------------------------
+
+test("ベストの早見表ページが生成対象・一覧・作品の列挙に入る", () => {
+  assert.ok(getGuide("vest"), "GUIDES に vest がある");
+  assert.ok(buildOverview().rows.some((r) => r.guide.slug === "vest"), "代表的な一着の比較表に入る");
+  for (const src of [read("README.md"), read("app", "layout.tsx"), read("app", "yardage", "page.tsx")]) {
+    assert.ok(src.includes("ベスト"), "対象の衣服の列挙にベストが入る");
+  }
+});
+
+test("ベストの lead『着丈の違いがそのまま必要な長さに表れる』は、全生地幅で着丈の行ごとに増えることで成立する", () => {
+  const guide = getGuide("vest");
+  assert.ok(/着丈の違いがそのまま必要な長さに表れます/.test(guide.lead), "前提: lead がこの主張をしている");
+  const axis = guide.axes.find((a) => a.key === "bodyLen");
+  const table = buildTable(guide, axis);
+  assert.ok(table.rows.length >= 2);
+  for (let i = 0; i < table.widths.length; i += 1) {
+    for (let k = 1; k < table.rows.length; k += 1) {
+      const a = table.rows[k - 1].cells[i];
+      const b = table.rows[k].cells[i];
+      assert.ok(b.totalCm > a.totalCm, `${table.widths[i]}cm 幅: ${table.rows[k - 1].label}→${table.rows[k].label} で増える`);
+    }
+  }
+});
+
+test("ベスト: 『前後の身頃が横に並ぶのは◯cm 幅』は配置から出ていて、並ぶ幅は1枚ぶん・並ばない幅は2枚ぶん以上", () => {
+  const guide = getGuide("vest");
+  const tip = derivedTipsFor(guide).join("\n");
+  assert.ok(tip.length > 0, "注記が出る（前提: 並ぶ幅と並ばない幅の両方がある）");
+  for (const w of FABRIC_WIDTHS) {
+    const beside = sameRow("vest", w, guide.base, "前身頃", "後身頃");
+    assert.equal(tip.includes(`${w}cm`), beside, `${w}cm 幅: 本文に載る ⇔ 横に並ぶ`);
+    const res = computeYardage("vest", w, guide.base);
+    const h = res.placed.find((p) => p.label === "前身頃").h;
+    if (!beside) assert.ok(res.rawCm >= h * 2, `${w}cm 幅: 身頃 2 枚ぶん以上積む`);
+  }
+});
+
+test("ベストの早見表は、袖丈を使わず、表地のみ・裏地は別を明記する", () => {
+  const guide = getGuide("vest");
+  assert.ok(guide.axes.every((a) => a.key !== "sleeveLen") && !("sleeveLen" in guide.base));
+  assert.ok(guide.tips.some((t) => t.includes("表地だけ") && t.includes("裏地")));
+  assert.ok(guide.pieces.includes("表地のみ"));
+});
