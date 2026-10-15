@@ -537,3 +537,7 @@ test("ベスト: 最も大きい寸法でも 90cm 幅の使える幅に身頃が
   const maxV = Object.fromEntries(vest.inputs.map((i) => [i.key, i.max]));
   for (const w of FABRIC_WIDTHS) assert.equal(computeYardage("vest", w, maxV).widthShortage, false, `${w}cm 幅`);
 });
+
+test("ベストの絵文字は安全ベスト（🦺）ではなく、袖なしの上衣に近い 🎽", () => {
+  assert.equal(getGarment("vest").emoji, "🎽");
+});

@@ -311,6 +311,55 @@ export const GUIDES = [
     ],
   },
   {
+    slug: "vest",
+    searchName: "ベスト",
+    description:
+      "ベスト（表地）に必要な生地の長さ（用尺）を、着丈・バストと生地幅 90／110／140cm の組み合わせで一覧にした早見表。袖なしの一着を買う前の見積りに。",
+    lead: "ベストは袖が無く、前後の身頃と見返しだけで仕立てます。パーツが少ないので、着丈の違いがそのまま必要な長さに表れます。",
+    pieces:
+      "前身頃・後身頃を「わ」で 1 枚ずつ、前端と袖ぐりに付ける見返しを 1 組。ここでの用尺は表地のみで、裏地・芯地は別に必要です。",
+    base: { bodyLen: 58, bust: 88 },
+    axes: [
+      {
+        key: "bodyLen",
+        caption: "着丈別の用尺（バスト 88cm）",
+        rowHeader: "着丈",
+        fixedNote: "バスト 88cm で固定したときの必要な長さ",
+        rows: [
+          { value: 45, label: "45cm（ショート）" },
+          { value: 58, label: "58cm（標準）" },
+          { value: 70, label: "70cm（ロング）" },
+          { value: 85, label: "85cm（ロングベスト）" },
+        ],
+      },
+      {
+        key: "bust",
+        caption: "バスト別の用尺（着丈 58cm）",
+        rowHeader: "バスト",
+        fixedNote: "着丈 58cm で固定したときの必要な長さ",
+        rows: [
+          { value: 80, label: "80cm" },
+          { value: 88, label: "88cm" },
+          { value: 96, label: "96cm" },
+          { value: 104, label: "104cm" },
+          { value: 120, label: "120cm" },
+        ],
+      },
+    ],
+    tips: [
+      "表の数字は表地だけの用尺です。裏地（前後の身頃ぶん）と接着芯（前身頃・見返しぶん）は、別に見積もってください。",
+    ],
+    // どの生地幅で前後の身頃が横に並ぶかは配置から導出する（耳の余裕や詰め方で変わる）。
+    derivedTips: (h) => {
+      const at = h.baseCells();
+      const beside = at.filter((c) => h.sideBySide(c.fabricWidth, "前身頃", "後身頃"));
+      if (beside.length === 0 || beside.length === at.length) return [];
+      return [
+        `表の標準的な寸法では、前後の身頃が横に並ぶのは ${beside.map((c) => `${c.fabricWidth}cm`).join("・")} 幅です。`,
+      ];
+    },
+  },
+  {
     slug: "coat",
     searchName: "コート",
     description:
@@ -378,55 +427,6 @@ export const GUIDES = [
         );
       }
       return tips;
-    },
-  },
-  {
-    slug: "vest",
-    searchName: "ベスト",
-    description:
-      "ベスト（表地）に必要な生地の長さ（用尺）を、着丈・バストと生地幅 90／110／140cm の組み合わせで一覧にした早見表。袖なしの一着を買う前の見積りに。",
-    lead: "ベストは袖が無く、前後の身頃と見返しだけで仕立てます。パーツが少ないので、着丈の違いがそのまま必要な長さに表れます。",
-    pieces:
-      "前身頃・後身頃を「わ」で 1 枚ずつ、前端と袖ぐりに付ける見返しを 1 組。ここでの用尺は表地のみで、裏地・芯地は別に必要です。",
-    base: { bodyLen: 58, bust: 88 },
-    axes: [
-      {
-        key: "bodyLen",
-        caption: "着丈別の用尺（バスト 88cm）",
-        rowHeader: "着丈",
-        fixedNote: "バスト 88cm で固定したときの必要な長さ",
-        rows: [
-          { value: 45, label: "45cm（ショート）" },
-          { value: 58, label: "58cm（標準）" },
-          { value: 70, label: "70cm（ロング）" },
-          { value: 85, label: "85cm（ロングベスト）" },
-        ],
-      },
-      {
-        key: "bust",
-        caption: "バスト別の用尺（着丈 58cm）",
-        rowHeader: "バスト",
-        fixedNote: "着丈 58cm で固定したときの必要な長さ",
-        rows: [
-          { value: 80, label: "80cm" },
-          { value: 88, label: "88cm" },
-          { value: 96, label: "96cm" },
-          { value: 104, label: "104cm" },
-          { value: 120, label: "120cm" },
-        ],
-      },
-    ],
-    tips: [
-      "表の数字は表地だけの用尺です。裏地（前後の身頃ぶん）と接着芯（前身頃・見返しぶん）は、別に見積もってください。",
-    ],
-    // どの生地幅で前後の身頃が横に並ぶかは配置から導出する（耳の余裕や詰め方で変わる）。
-    derivedTips: (h) => {
-      const at = h.baseCells();
-      const beside = at.filter((c) => h.sideBySide(c.fabricWidth, "前身頃", "後身頃"));
-      if (beside.length === 0 || beside.length === at.length) return [];
-      return [
-        `表の標準的な寸法では、前後の身頃が横に並ぶのは ${beside.map((c) => `${c.fabricWidth}cm`).join("・")} 幅です。`,
-      ];
     },
   },
   {
