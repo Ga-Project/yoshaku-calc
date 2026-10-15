@@ -646,9 +646,9 @@ test("ベストの早見表ページが生成対象・一覧・作品の列挙�
   }
 });
 
-test("ベストの lead『着丈の違いがそのまま必要な長さに表れる』は、全生地幅で着丈の行ごとに増えることで成立する", () => {
+test("ベストの lead『着丈が長いほど必要な長さは増える』は、全生地幅で着丈の行ごとに増えることで成立する", () => {
   const guide = getGuide("vest");
-  assert.ok(/着丈の違いがそのまま必要な長さに表れます/.test(guide.lead), "前提: lead がこの主張をしている");
+  assert.ok(/着丈が長いほど、必要な長さは増えます/.test(guide.lead), "前提: lead がこの主張をしている");
   const axis = guide.axes.find((a) => a.key === "bodyLen");
   const table = buildTable(guide, axis);
   assert.ok(table.rows.length >= 2);
@@ -661,7 +661,7 @@ test("ベストの lead『着丈の違いがそのまま必要な長さに表れ
   }
 });
 
-test("ベスト: 『前後の身頃が横に並ぶのは◯cm 幅』は配置から出ていて、並ぶ幅は1枚ぶん・並ばない幅は2枚ぶん以上", () => {
+test("ベスト: 『前後の身頃が横に並ぶのは◯cm 幅』は配置から出ていて、並ばない幅は身頃 2 枚ぶん以上積み、並ぶ幅は 2 枚ぶんに届かない", () => {
   const guide = getGuide("vest");
   const tip = derivedTipsFor(guide).join("\n");
   assert.ok(tip.length > 0, "注記が出る（前提: 並ぶ幅と並ばない幅の両方がある）");
@@ -670,7 +670,8 @@ test("ベスト: 『前後の身頃が横に並ぶのは◯cm 幅』は配置か
     assert.equal(tip.includes(`${w}cm`), beside, `${w}cm 幅: 本文に載る ⇔ 横に並ぶ`);
     const res = computeYardage("vest", w, guide.base);
     const h = res.placed.find((p) => p.label === "前身頃").h;
-    if (!beside) assert.ok(res.rawCm >= h * 2, `${w}cm 幅: 身頃 2 枚ぶん以上積む`);
+    if (beside) assert.ok(res.rawCm < h * 2, `${w}cm 幅: 身頃 2 枚ぶんに届かない`);
+    else assert.ok(res.rawCm >= h * 2, `${w}cm 幅: 身頃 2 枚ぶん以上積む`);
   }
 });
 
@@ -678,5 +679,6 @@ test("ベストの早見表は、袖丈を使わず、表地のみ・裏地は�
   const guide = getGuide("vest");
   assert.ok(guide.axes.every((a) => a.key !== "sleeveLen") && !("sleeveLen" in guide.base));
   assert.ok(guide.tips.some((t) => t.includes("表地だけ") && t.includes("裏地")));
+  assert.ok(guide.tips.some((t) => t.includes("ポケット") && t.includes("衿") && t.includes("含みません")), "含まないパーツを明記する");
   assert.ok(guide.pieces.includes("表地のみ"));
 });
