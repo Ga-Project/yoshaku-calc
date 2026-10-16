@@ -110,12 +110,6 @@
   /* 「生地幅 110cm」で折り返すと列ごとに行数がずれて比較しにくい。1行に保つ。 */
   white-space: nowrap;
 }
-/* 狭い画面では表の右端が 28px ぶんフェードする（globals.css の .guide-table-wrap）。
- * 最後の列の字がそこに掛かって切れないよう、右に同じ幅の余白を取る。 */
-.yardage-table th:last-child,
-.yardage-table td:last-child {
-  padding-inline-end: 28px;
-}
 .yardage-table thead th small {
   display: block;
   font-weight: var(--fw-normal);
@@ -257,10 +251,19 @@
 .yardage-table thead th small {
   white-space: nowrap;
 }
-/* 最後の列（裁断図）は表の右端に来るので、見出しの補足は「生地幅」と数字の間で折り返して
- * 列を細く保つ。1 行のままだと狭い画面で表が横にはみ出し、右端の字が切れる。 */
-.yardage-table thead th:last-child small {
-  white-space: normal;
+/* 狭い画面（globals.css の .guide-table-wrap が右端をフェードさせる幅と同じ）だけ:
+ * - 最後の列の字がフェードに掛かって切れないよう、右に同じ 28px の余白を取る。
+ * - 最後の列（裁断図）の見出し補足は「生地幅」と数字の間で折り返して列を細く保つ。
+ *   1 行のままだと表が横にはみ出し、右端の字が切れる。
+ * 広い画面の見た目は変えない。 */
+@media (max-width: 40rem) {
+  .yardage-table th:last-child,
+  .yardage-table td:last-child {
+    padding-inline-end: 28px;
+  }
+  .yardage-table thead th:last-child small {
+    white-space: normal;
+  }
 }
 
 /* 表見出しの語のかたまり。語の途中（「バス／ト」等）で折り返さない。 */

@@ -28,7 +28,7 @@ import { FABRIC_WIDTHS, computeYardage, getGarment } from "../../lib/calc.mjs";
  * @property {string} rowHeader 行見出し列のラベル（例: "バスト"）
  * @property {string} fixedNote 固定した寸法の説明
  * @property {AxisRow[]} rows
- * @property {{slug: string, text: string}} [seeAlso] 表のすぐ下に出す、関連する種別の早見表への案内
+ * @property {{slug: string, text: string, after?: string}} [seeAlso] 表のすぐ下に出す、関連する種別の早見表への案内（after は案内先の名前の後ろに続く文。省略時は「で確かめてください。」）
  */
 
 /**
@@ -55,11 +55,45 @@ import { FABRIC_WIDTHS, computeYardage, getGarment } from "../../lib/calc.mjs";
  * @property {(key: string) => {width: number, min: number, max: number}[]} axisIncrements 行ごとの増え方(cm)
  * @property {(key: string) => number} axisStep 行の値の刻み(cm)。等間隔でなければ例外
  * @property {(key: string, fromRow: number) => number[]} flatWidths fromRow 行目以降の値が全て同じ生地幅
- * @property {(key: string, a: string, b: string) => {width: number, from: string}[]} besideLost key の軸で、前の行では a と b が同じ段にあり、その行では離れる箇所（全件）
+ * @property {(key: string, a: string, b: string) => {width: number, from: string, rowHeader: string}[]} besideLost key の軸で、前の行では a と b が同じ段にあり、その行では離れる箇所（全件）
  * @property {() => Cell[]} baseCells 固定寸法（base）での各生地幅の結果（幅不足の幅は含めない）
  * @property {(width: number, a: string, b: string) => boolean} sideBySide base の配置で a と b が同じ段にあるか
  * @property {(v: number) => string} m
  */
+
+/**
+ * ハーフパンツとパンツで丈の入力範囲が重なる区間。案内文の数値はここから作る
+ * （入力範囲を変えたとき、文言だけが古い数値のまま残らないようにする）。
+ */
+const LEN_RANGE = (id, key) => {
+  const input = getGarment(id)?.inputs.find((i) => i.key === key);
+  if (!input) throw new Error(`unknown input: ${id}.${key}`);
+  return { min: input.min, max: input.max };
+};
+const SHORTS_LEN = LEN_RANGE("shorts", "shortsLen");
+const PANTS_LEN = LEN_RANGE("pants", "pantsLen");
+/** 丈がどちらの種別でも計算できる区間（パンツの下限〜ハーフパンツの上限）。 */
+export const OVERLAP_LEN = { min: PANTS_LEN.min, max: SHORTS_LEN.max };
+/** ハーフパンツの早見表で固定する寸法。表題・固定寸法の注記はここから作る。 */
+const SHORTS_BASE = { shortsLen: 50, hip: 94 };
+
+/**
+ * ある軸で、前後のパーツが横に並べなくなって必要な長さが一段と増える行の注記。
+ * 該当が無ければ null。
+ * @param {TipHelpers} h
+ * @param {string} axisKey
+ * @param {string} a
+ * @param {string} b
+ * @returns {string | null}
+ */
+function besideLostTip(h, axisKey, a, b) {
+  const lost = h.besideLost(axisKey, a, b);
+  if (lost.length === 0) return null;
+  const head = lost[0].rowHeader;
+  return `${head}別の表では、${lost
+    .map((l) => `${l.width}cm 幅は ${l.rowHeader} ${l.from} の行から`)
+    .join("、")}前後が横に並ばなくなり、必要な長さが一段と増えます。`;
+}
 
 /** @type {GarmentGuide[]} */
 export const GUIDES = [
@@ -232,14 +266,15 @@ export const GUIDES = [
         rowHeader: "パンツ丈",
         fixedNote: "ヒップ 94cm で固定したときの必要な長さ",
         rows: [
-          { value: 55, label: "55cm（短め）" },
+          { value: 55, label: "55cm" },
           { value: 75, label: "75cm（クロップド）" },
           { value: 96, label: "96cm（フルレングス）" },
           { value: 108, label: "108cm（ワイド・長め）" },
         ],
         seeAlso: {
           slug: "shorts",
-          text: "丈の短いパンツは、",
+          text: `丈が ${OVERLAP_LEN.min}〜${OVERLAP_LEN.max}cm のパンツは、`,
+          after: "でも同じ値を確かめられます。",
         },
       },
       {
@@ -264,10 +299,16 @@ export const GUIDES = [
       const stacked = at.filter((c) => !h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
       const beside = at.filter((c) => h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
       const list = (cs) => cs.map((c) => `${c.fabricWidth}cm 幅で ${h.m(c.totalM)}`).join("、");
-      if (stacked.length === 0 || beside.length === 0) return [];
-      return [
-        `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。並べられるかどうかで必要な長さが大きく変わります。`,
-      ];
+      const tips = [];
+      if (stacked.length > 0 && beside.length > 0) {
+        tips.push(
+          `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。並べられるかどうかで必要な長さが大きく変わります。`,
+        );
+      }
+      // ヒップ別の表で、前後が横に並べなくなって必要な長さが跳ねる行は、配置から探して言う。
+      const jump = besideLostTip(h, "hip", "前パンツ", "後パンツ");
+      if (jump) tips.push(jump);
+      return tips;
     },
   },
   {
@@ -277,13 +318,13 @@ export const GUIDES = [
       "ハーフパンツに必要な生地の長さ（用尺）を、パンツ丈・ヒップと生地幅 90／110／140cm の組み合わせで一覧にした早見表。短い丈のパンツの見積りに。",
     lead: "ハーフパンツ（ショートパンツとも呼ばれる短い丈のパンツ）の用尺です。この表では、前後 2 枚とウエストベルトを見込んでいます。丈が長いほど、必要な長さは増えます。",
     pieces: "前パンツ・後パンツを「わ」で 1 枚ずつ、ウエストベルトを 1 本。",
-    base: { shortsLen: 50, hip: 94 },
+    base: SHORTS_BASE,
     axes: [
       {
         key: "shortsLen",
-        caption: "パンツ丈別の用尺（ヒップ 94cm）",
+        caption: `パンツ丈別の用尺（ヒップ ${SHORTS_BASE.hip}cm）`,
         rowHeader: "パンツ丈",
-        fixedNote: "ヒップ 94cm で固定したときの必要な長さ",
+        fixedNote: `ヒップ ${SHORTS_BASE.hip}cm で固定したときの必要な長さ`,
         rows: [
           { value: 30, label: "30cm" },
           { value: 40, label: "40cm" },
@@ -292,14 +333,14 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "pants",
-          text: "60cm を超える丈のパンツは、",
+          text: `${SHORTS_LEN.max}cm を超える丈のパンツは、`,
         },
       },
       {
         key: "hip",
-        caption: "ヒップ別の用尺（パンツ丈 50cm）",
+        caption: `ヒップ別の用尺（パンツ丈 ${SHORTS_BASE.shortsLen}cm）`,
         rowHeader: "ヒップ",
-        fixedNote: "パンツ丈 50cm で固定したときの必要な長さ",
+        fixedNote: `パンツ丈 ${SHORTS_BASE.shortsLen}cm で固定したときの必要な長さ`,
         rows: [
           { value: 86, label: "86cm" },
           { value: 94, label: "94cm" },
@@ -309,7 +350,7 @@ export const GUIDES = [
       },
     ],
     tips: [
-      "この表で見込んでいるのは前後パンツとウエストベルトだけです。ポケット・ゴムの通し代・飾りのテープなどを付ける場合は、そのぶんを別に見積もってください。",
+      "この表で見込んでいるのは前後パンツとウエストベルトだけです。ポケット・飾りのテープなどを付ける場合は、そのぶんを別に見積もってください。ゴムを通す場合は、仕立て方によって別に必要なことがあります。",
     ],
     // 「縦に積まれる／横に並ぶ」と、そのときの長さは配置から導出する。
     derivedTips: (h) => {
@@ -324,14 +365,8 @@ export const GUIDES = [
         );
       }
       // ヒップ別の表で、前後が横に並べなくなって必要な長さが跳ねる行は、配置から探して言う。
-      const lost = h.besideLost("hip", "前パンツ", "後パンツ");
-      if (lost.length > 0) {
-        tips.push(
-          `ヒップ別の表では、${lost
-            .map((l) => `${l.width}cm 幅は ${l.from} の行から`)
-            .join("、")}前後が横に並ばなくなり、必要な長さが一段と増えます。`,
-        );
-      }
+      const jump = besideLostTip(h, "hip", "前パンツ", "後パンツ");
+      if (jump) tips.push(jump);
       return tips;
     },
   },
@@ -589,7 +624,7 @@ export const GUIDES = [
  * @property {string} fixedNote
  * @property {number[]} widths
  * @property {TableRow[]} rows
- * @property {{slug: string, text: string, name: string} | null} seeAlso 関連する早見表への案内（name は案内先の呼び名）
+ * @property {{slug: string, text: string, after: string, name: string} | null} seeAlso 関連する早見表への案内（name は案内先の呼び名）
  */
 
 /** 深いリンクを開くときの生地幅（店頭で最も一般的な標準幅）。表の見出しにも明記する。 */
@@ -648,7 +683,7 @@ export function buildTable(guide, axis) {
   if (axis.seeAlso) {
     const target = GUIDES.find((g) => g.slug === axis.seeAlso?.slug);
     if (!target) throw new Error(`unknown seeAlso: ${guide.slug}.${axis.key} -> ${axis.seeAlso.slug}`);
-    seeAlso = { ...axis.seeAlso, name: target.searchName };
+    seeAlso = { ...axis.seeAlso, after: axis.seeAlso.after ?? "で確かめてください。", name: target.searchName };
   }
 
   return {
@@ -845,19 +880,19 @@ export function sideBySide(guide, width, a, b, values = guide.base) {
  * @param {string} axisKey
  * @param {string} a
  * @param {string} b
- * @returns {{width: number, from: string}[]}
+ * @returns {{width: number, from: string, rowHeader: string}[]}
  */
 export function besideLost(guide, axisKey, a, b) {
   const axis = guide.axes.find((x) => x.key === axisKey);
   if (!axis) throw new Error(`no axis ${axisKey} on ${guide.slug}`);
-  /** @type {{width: number, from: string}[]} */
+  /** @type {{width: number, from: string, rowHeader: string}[]} */
   const out = [];
   for (const width of FABRIC_WIDTHS) {
     axis.rows.forEach((row, k) => {
       if (k === 0) return;
       const prev = sideBySide(guide, width, a, b, { ...guide.base, [axisKey]: axis.rows[k - 1].value });
       const cur = sideBySide(guide, width, a, b, { ...guide.base, [axisKey]: row.value });
-      if (prev && !cur) out.push({ width, from: row.label });
+      if (prev && !cur) out.push({ width, from: row.label, rowHeader: axis.rowHeader });
     });
   }
   return out;
