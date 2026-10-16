@@ -90,9 +90,11 @@ function besideLostTip(h, axisKey, a, b) {
   const lost = h.besideLost(axisKey, a, b);
   if (lost.length === 0) return null;
   const head = lost[0].rowHeader;
+  // 行見出しは「110cm（ゆったり）」のように呼称が付くことがあるので、数値の部分だけを使う。
+  const name = (l) => `${l.rowHeader} ${l.from.replace(/（[^）]*）$/, "")}`;
   return `${head}別の表では、${lost
-    .map((l) => `${l.width}cm 幅は ${l.rowHeader} ${l.from} の行から`)
-    .join("、")}前後が横に並ばなくなり、必要な長さが一段と増えます。`;
+    .map((l) => `${l.width}cm 幅は、${name(l)} の行から`)
+    .join("、")}、前後が横に並ばなくなり、必要な長さが増えます。`;
 }
 
 /** @type {GarmentGuide[]} */
@@ -274,7 +276,7 @@ export const GUIDES = [
         seeAlso: {
           slug: "shorts",
           text: `丈が ${OVERLAP_LEN.min}〜${OVERLAP_LEN.max}cm のパンツは、`,
-          after: "でも同じ値を確かめられます。",
+          after: "でも同じ計算式で扱っています。近い丈の行も目安にできます。",
         },
       },
       {
@@ -875,7 +877,7 @@ export function sideBySide(guide, width, a, b, values = guide.base) {
 
 /**
  * ある軸を上から見て、前の行では a と b が同じ段に並び、その行では並ばなくなる箇所を
- * 生地幅ごとに全て実測する（並ばなくなると必要な長さが跳ねる）。
+ * 生地幅ごとに全て実測する（並ばなくなると必要な長さが跳ねる）。必要な長さが増えた行だけを返す。
  * @param {GarmentGuide} guide
  * @param {string} axisKey
  * @param {string} a
@@ -890,9 +892,13 @@ export function besideLost(guide, axisKey, a, b) {
   for (const width of FABRIC_WIDTHS) {
     axis.rows.forEach((row, k) => {
       if (k === 0) return;
-      const prev = sideBySide(guide, width, a, b, { ...guide.base, [axisKey]: axis.rows[k - 1].value });
-      const cur = sideBySide(guide, width, a, b, { ...guide.base, [axisKey]: row.value });
-      if (prev && !cur) out.push({ width, from: row.label, rowHeader: axis.rowHeader });
+      const pv = { ...guide.base, [axisKey]: axis.rows[k - 1].value };
+      const cv = { ...guide.base, [axisKey]: row.value };
+      const prev = sideBySide(guide, width, a, b, pv);
+      const cur = sideBySide(guide, width, a, b, cv);
+      // 注記は「必要な長さが増える」と言うので、実際に増えた行だけを拾う。
+      const grew = computeYardage(guide.slug, width, cv).totalCm > computeYardage(guide.slug, width, pv).totalCm;
+      if (prev && !cur && grew) out.push({ width, from: row.label, rowHeader: axis.rowHeader });
     });
   }
   return out;
