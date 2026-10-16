@@ -682,3 +682,67 @@ test("ベストの早見表は、袖丈を使わず、表地のみ・裏地は�
   assert.ok(guide.tips.some((t) => t.includes("ポケット") && t.includes("衿") && t.includes("含みません")), "含まないパーツを明記する");
   assert.ok(guide.pieces.includes("表地のみ"));
 });
+
+// ---------------------------------------------------------------------------
+// ハーフパンツの早見表: ページが出ること、本文の主張が計算と配置で裏づけられること。
+// ---------------------------------------------------------------------------
+
+test("ハーフパンツの早見表ページが生成対象・一覧・作品の列挙に入る", () => {
+  assert.ok(getGuide("shorts"), "GUIDES に shorts がある");
+  assert.ok(buildOverview().rows.some((r) => r.guide.slug === "shorts"), "代表的な一着の比較表に入る");
+  for (const src of [read("README.md"), read("app", "layout.tsx"), read("app", "yardage", "page.tsx")]) {
+    assert.ok(src.includes("ハーフパンツ"), "対象の衣服の列挙にハーフパンツが入る");
+  }
+});
+
+test("ハーフパンツの lead『丈が長いほど必要な長さは増える』は、全生地幅で丈の行ごとに増えることで成立する", () => {
+  const guide = getGuide("shorts");
+  assert.ok(/丈が長いほど、必要な長さは増えます/.test(guide.lead), "前提: lead がこの主張をしている");
+  const axis = guide.axes.find((a) => a.key === "shortsLen");
+  const table = buildTable(guide, axis);
+  assert.ok(table.rows.length >= 2);
+  for (let i = 0; i < table.widths.length; i += 1) {
+    for (let k = 1; k < table.rows.length; k += 1) {
+      const a = table.rows[k - 1].cells[i];
+      const b = table.rows[k].cells[i];
+      assert.ok(b.totalCm > a.totalCm, `${table.widths[i]}cm 幅: ${table.rows[k - 1].label}→${table.rows[k].label} で増える`);
+    }
+  }
+});
+
+test("ハーフパンツ: 本文の『縦に積まれる／横に並べられる』と長さは配置から出ていて、積まれる幅は前パンツ 2 枚ぶん以上", () => {
+  const guide = getGuide("shorts");
+  const tips = derivedTipsFor(guide).join("\n");
+  assert.ok(tips.length > 0, "注記が出る（前提: 積まれる幅と並ぶ幅の両方がある）");
+  for (const w of FABRIC_WIDTHS) {
+    const res = computeYardage("shorts", w, guide.base);
+    const beside = sameRow("shorts", w, guide.base, "前パンツ", "後パンツ");
+    const seg = beside ? tips.split("横に並べられる")[1] : tips.split("横に並べられる")[0];
+    assert.ok(seg.includes(`${w}cm 幅で ${res.totalM.toFixed(1)}m`), `${w}cm 幅は${beside ? "横並び" : "縦積み"}側に実測値で載る`);
+    const h = res.placed.find((p) => p.label === "前パンツ").h;
+    if (beside) assert.ok(res.rawCm < h * 2, `${w}cm 幅: 前パンツ 2 枚ぶんに届かない`);
+    else assert.ok(res.rawCm >= h * 2, `${w}cm 幅: 前パンツ 2 枚ぶん以上積む`);
+  }
+});
+
+test("ハーフパンツの早見表は、丈の行がすべて短い側にあり、含まないパーツを明記する", () => {
+  const guide = getGuide("shorts");
+  const axis = guide.axes.find((a) => a.key === "shortsLen");
+  const input = getGarment("shorts").inputs.find((i) => i.key === "shortsLen");
+  for (const row of axis.rows) assert.ok(row.value >= input.min && row.value <= input.max, `${row.label}: 入力範囲内`);
+  assert.ok(Math.max(...axis.rows.map((r) => r.value)) < getGarment("pants").inputs.find((i) => i.key === "pantsLen").def);
+  assert.ok(guide.tips.some((t) => t.includes("ポケット") && t.includes("別に見積もって")), "含まないパーツを明記する");
+  assert.ok(guide.pieces.includes("ポケット") && guide.pieces.includes("含みません"));
+});
+
+test("パンツの丈別の表から、ハーフパンツの早見表へ案内する（短い丈の行はハーフパンツ側に揃っている）", () => {
+  const pants = getGuide("pants");
+  const axis = pants.axes.find((a) => a.key === "pantsLen");
+  const table = buildTable(pants, axis);
+  assert.deepEqual(
+    table.seeAlso && { slug: table.seeAlso.slug, name: table.seeAlso.name },
+    { slug: "shorts", name: getGuide("shorts").searchName },
+  );
+  const back = buildTable(getGuide("shorts"), getGuide("shorts").axes.find((a) => a.key === "shortsLen"));
+  assert.equal(back.seeAlso?.slug, "pants", "ハーフパンツからパンツへも案内する");
+});

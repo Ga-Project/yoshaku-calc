@@ -236,6 +236,10 @@ export const GUIDES = [
           { value: 96, label: "96cm（フルレングス）" },
           { value: 108, label: "108cm（ワイド・長め）" },
         ],
+        seeAlso: {
+          slug: "shorts",
+          text: "丈の短いパンツは、短い丈を中心に並べた",
+        },
       },
       {
         key: "hip",
@@ -262,6 +266,60 @@ export const GUIDES = [
       if (stacked.length === 0 || beside.length === 0) return [];
       return [
         `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。並べられるかどうかで必要な長さが大きく変わります。`,
+      ];
+    },
+  },
+  {
+    slug: "shorts",
+    searchName: "ハーフパンツ",
+    description:
+      "ハーフパンツ・ショートパンツに必要な生地の長さ（用尺）を、パンツ丈・ヒップと生地幅 90／110／140cm の組み合わせで一覧にした早見表。夏用の短い丈の見積りに。",
+    lead: "ハーフパンツは前後 2 枚とウエストベルトだけで仕立てます。丈が長いほど、必要な長さは増えます。",
+    pieces:
+      "前パンツ・後パンツを「わ」で 1 枚ずつ、ウエストベルトを 1 本。ポケットや、ゴムを通すための布は含みません。",
+    base: { shortsLen: 50, hip: 94 },
+    axes: [
+      {
+        key: "shortsLen",
+        caption: "パンツ丈別の用尺（ヒップ 94cm）",
+        rowHeader: "パンツ丈",
+        fixedNote: "ヒップ 94cm で固定したときの必要な長さ",
+        rows: [
+          { value: 30, label: "30cm（ショート）" },
+          { value: 40, label: "40cm" },
+          { value: 50, label: "50cm" },
+          { value: 60, label: "60cm（ひざ丈）" },
+        ],
+        seeAlso: {
+          slug: "pants",
+          text: "ひざから下まで届く丈のパンツは、",
+        },
+      },
+      {
+        key: "hip",
+        caption: "ヒップ別の用尺（パンツ丈 50cm）",
+        rowHeader: "ヒップ",
+        fixedNote: "パンツ丈 50cm で固定したときの必要な長さ",
+        rows: [
+          { value: 86, label: "86cm" },
+          { value: 94, label: "94cm" },
+          { value: 102, label: "102cm" },
+          { value: 110, label: "110cm" },
+        ],
+      },
+    ],
+    tips: [
+      "表の数字は前後パンツとウエストベルトだけの用尺です。ポケット・ゴムを通す布・飾りのテープなどを付ける場合は、そのぶんを別に見積もってください。",
+    ],
+    // 「縦に積まれる／横に並ぶ」と、そのときの長さは配置から導出する。
+    derivedTips: (h) => {
+      const at = h.baseCells();
+      const stacked = at.filter((c) => !h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
+      const beside = at.filter((c) => h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
+      const list = (cs) => cs.map((c) => `${c.fabricWidth}cm 幅で ${h.m(c.totalM)}`).join("、");
+      if (stacked.length === 0 || beside.length === 0) return [];
+      return [
+        `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。`,
       ];
     },
   },

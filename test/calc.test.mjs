@@ -22,8 +22,8 @@ function defaults(garment) {
   return v;
 }
 
-test("GARMENTS は8種別・各々が入力定義と pieces 関数を持つ", () => {
-  assert.equal(GARMENTS.length, 8);
+test("GARMENTS は9種別・各々が入力定義と pieces 関数を持つ", () => {
+  assert.equal(GARMENTS.length, 9);
   for (const g of GARMENTS) {
     assert.ok(g.id && g.label && typeof g.pieces === "function");
     assert.ok(Array.isArray(g.inputs) && g.inputs.length >= 1);
@@ -540,4 +540,66 @@ test("ベスト: 最も大きい寸法でも 90cm 幅の使える幅に身頃が
 
 test("ベストの絵文字は安全ベスト（🦺）ではなく、袖なしの上衣に近い 🎽", () => {
   assert.equal(getGarment("vest").emoji, "🎽");
+});
+
+// ---------------------------------------------------------------------------
+// ハーフパンツ: パンツと同じ見込み方で、短い丈だけを受け持つ。
+// ---------------------------------------------------------------------------
+
+test("ハーフパンツ: 入力はパンツ丈・ヒップで、前後パンツとウエストベルトを裁ち、絵文字は 🩳", () => {
+  const shorts = getGarment("shorts");
+  assert.deepEqual(shorts.inputs.map((i) => i.key), ["shortsLen", "hip"]);
+  for (const i of shorts.inputs) assert.ok(i.min <= i.def && i.def <= i.max, `${i.key}: 既定値が範囲内`);
+  const labels = computeYardage("shorts", 110, {}).placed.map((p) => p.label);
+  assert.deepEqual([...labels].sort(), ["前パンツ", "後パンツ", "ウエストベルト"].sort());
+  assert.ok(labels.length <= MAX_PERMUTE_PIECES, "全順番を試せる枚数に収まる");
+  assert.equal(shorts.emoji, "🩳");
+  assert.notEqual(shorts.emoji, getGarment("pants").emoji, "パンツと同じ絵にしない");
+});
+
+test("ハーフパンツ: 同じ丈・ヒップならパンツと同じパーツ寸法（見込み方を共有する）で、丈の範囲はパンツより短い側に取る", () => {
+  const pants = getGarment("pants");
+  const shorts = getGarment("shorts");
+  const sp = shorts.inputs.find((i) => i.key === "shortsLen");
+  const pp = pants.inputs.find((i) => i.key === "pantsLen");
+  assert.ok(sp.max < pp.def, "ハーフパンツの丈の上限は、パンツの既定の丈より短い");
+  for (const hip of [70, 94, 140]) {
+    for (const len of [sp.min, sp.def, sp.max]) {
+      assert.deepEqual(
+        shorts.pieces({ shortsLen: len, hip }),
+        pants.pieces({ pantsLen: len, hip }),
+        `丈 ${len}cm・ヒップ ${hip}cm: パーツがパンツと一致`,
+      );
+    }
+  }
+});
+
+test("ハーフパンツ: 丈・ヒップを増やしても必要量は減らず、広い生地幅ほど短い（1cm 刻み・全生地幅）", () => {
+  const shorts = getGarment("shorts");
+  for (const input of shorts.inputs) {
+    for (const w of FABRIC_WIDTHS) {
+      let prev = -Infinity;
+      for (let x = input.min; x <= input.max; x += 1) {
+        const t = computeYardage("shorts", w, { ...defaults(shorts), [input.key]: x }).totalCm;
+        assert.ok(t >= prev, `shorts.${input.key}@${w}: ${x}cm で ${prev}→${t}`);
+        prev = t;
+      }
+    }
+  }
+  for (const v of [defaults(shorts), ...grid(shorts)]) {
+    let prev = Infinity;
+    for (const w of FABRIC_WIDTHS) {
+      const r = computeYardage("shorts", w, v);
+      assert.ok(r.totalCm <= prev, `${JSON.stringify(v)}@${w}: ${r.totalCm} <= ${prev}`);
+      prev = r.totalCm;
+      const over = r.placed.filter((p) => p.w > r.usableWidth);
+      assert.equal(r.widthShortage, over.length > 0, "幅不足の印は使える幅超えと一致");
+    }
+  }
+});
+
+test("ハーフパンツ: 最も大きい寸法でも全ての生地幅で前後パンツが収まる（早見表に幅不足の印を出す必要がない）", () => {
+  const shorts = getGarment("shorts");
+  const maxV = Object.fromEntries(shorts.inputs.map((i) => [i.key, i.max]));
+  for (const w of FABRIC_WIDTHS) assert.equal(computeYardage("shorts", w, maxV).widthShortage, false, `${w}cm 幅`);
 });
