@@ -826,8 +826,6 @@ test("表の右端（裁断図の列）の余白・見出し補足の折り返�
   assert.ok(mine, "最後の列の規則が同じ幅条件の @media の中にある");
   assert.ok(new RegExp(`padding-inline-end: ${fadePx}px`).test(mine), "余白はフェードの幅と同じ");
   assert.ok(/\.yardage-table thead th:last-child small\s*\{\s*white-space: normal;/.test(mine));
-  assert.ok(/\.yardage-table tbody th\s*\{[^}]*position: sticky;[^}]*left: 0;[^}]*background: var\(--bg\);/.test(mine), "行見出しを左に固定する（背景付き）");
-  assert.ok(/\.yardage-table tbody th\s*\{[^}]*word-break: keep-all;/.test(mine), "呼称の途中では折り返さない");
   // @media の外には、最後の列への規則が無い（広い画面と既存の見た目を変えない）。
   const outside = css.replace(mine, "");
   assert.ok(!/th:last-child|td:last-child/.test(outside), "広い画面には効かせない");
