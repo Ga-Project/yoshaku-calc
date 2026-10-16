@@ -735,6 +735,8 @@ test("ハーフパンツの早見表: 丈の行は入力範囲内で、含まな
   const notIncluded = (t) => t.includes("ポケット") && t.includes("別に見積もって") && t.includes("ゴムを通す場合は、仕立て方によって別に必要なことがあります");
   assert.equal(guide.tips.filter(notIncluded).length, 1, "tips に 1 件");
   assert.ok(!guide.pieces.includes("ポケット") && !guide.lead.includes("ポケット"), "pieces・lead に重ねない");
+  // パンツの前後は股ぐりで左右に分かれるので、「わ」で 1 枚ずつ裁つとは書かない（過去の指摘と同じ型）。
+  assert.ok(!guide.pieces.includes("「わ」") && guide.pieces.includes("二つ折りの生地から左右の脚ぶん"), "『わ』と書かず、二つ折りから左右ぶんを一度に裁つと書く");
   assert.ok(/見込んでいます/.test(guide.lead) && !/だけで仕立てます/.test(guide.lead), "lead は見込みの範囲として書く");
   assert.ok(!/夏/.test(guide.description + guide.lead), "季節の用途を主張しない");
   assert.ok(getGarment("shorts").blurb.includes("ポケット"), "計算機の説明にも含まないものを書く");
