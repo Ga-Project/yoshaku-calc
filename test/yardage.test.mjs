@@ -754,7 +754,7 @@ for (const [slug, front, back] of [["shorts", "前パンツ", "後パンツ"], [
       for (let k = 1; k < table.rows.length; k += 1) {
         const prev = sameRow(slug, w, { ...guide.base, hip: table.rows[k - 1].value }, front, back);
         const cur = sameRow(slug, w, { ...guide.base, hip: table.rows[k].value }, front, back);
-        const said = tips.includes(`${w}cm 幅は ${axis.rowHeader} ${table.rows[k].label} の行から`);
+        const said = tips.includes(`${w}cm 幅は、${axis.rowHeader} ${table.rows[k].label} の行から`);
         assert.equal(said, prev && !cur, `${w}cm 幅・${table.rows[k].label}: 本文に載る ⇔ 並ぶ→並ばない`);
         if (!(prev && !cur)) continue;
         lostCount += 1;
@@ -782,7 +782,7 @@ test("ハーフパンツ⇔パンツの案内は、入力範囲の数値（重�
   const table = buildTable(pants, pAxis);
   assert.deepEqual(table.seeAlso && { slug: table.seeAlso.slug, name: table.seeAlso.name }, { slug: "shorts", name: shorts.searchName });
   assert.ok(table.seeAlso.text.includes(`${pIn.min}〜${sIn.max}cm`), "重なる丈の範囲を数値で言う");
-  assert.ok(/同じ値/.test(table.seeAlso.after), "『同じ値』と言う");
+  assert.ok(/同じ計算式/.test(table.seeAlso.after) && /近い丈の行/.test(table.seeAlso.after), "『同じ計算式』『近い丈の行も目安』と言う");
   assert.ok(pIn.min <= sIn.max, "前提: 範囲が重なる");
   // 『同じ値』の根拠: 固定する寸法（ヒップ）が両ページで同じで、重なる丈はどの生地幅でも同じ用尺。
   assert.equal(pants.base.hip, shorts.base.hip, "ヒップの固定値が同じ");
@@ -796,8 +796,19 @@ test("ハーフパンツ⇔パンツの案内は、入力範囲の数値（重�
     }
   }
   assert.ok(checked > 0);
-  // パンツ側の丈の行のうち重なる範囲にある行は、ハーフパンツ側と同じ値を表に出す。
-  assert.ok(pAxis.rows.some((r) => r.value >= pIn.min && r.value <= sIn.max), "前提: 重なる範囲に行がある");
+  // 『近い丈の行も目安にできる』の根拠: パンツ側の重なる範囲の各行に、ハーフパンツ側で 10cm 以内の行があり、
+  // その行の用尺は同じ丈・同じヒップのパンツの用尺と一致する。
+  const sRows = shorts.axes.find((a) => a.key === "shortsLen").rows;
+  const overlapRows = pAxis.rows.filter((r) => r.value >= pIn.min && r.value <= sIn.max);
+  assert.ok(overlapRows.length > 0, "前提: 重なる範囲に行がある");
+  for (const r of overlapRows) {
+    assert.ok(sRows.some((x) => Math.abs(x.value - r.value) <= 10), `${r.value}cm: ハーフパンツ側に 10cm 以内の行`);
+  }
+  for (const x of sRows.filter((x) => x.value >= pIn.min)) {
+    for (const w of FABRIC_WIDTHS) {
+      assert.equal(computeYardage("shorts", w, { ...shorts.base, shortsLen: x.value }).totalCm, computeYardage("pants", w, { ...pants.base, pantsLen: x.value }).totalCm, `丈 ${x.value}cm@${w}: 行の値がパンツと一致`);
+    }
+  }
   // 呼称は、身長・体型で意味が変わる語（ハーフ等）を行ラベルに付けない。
   for (const row of pAxis.rows.filter((r) => r.value <= sIn.max)) assert.ok(!/ハーフ|短め/.test(row.label), `${row.label}: 呼称を付けない`);
   assert.ok(read("app", "yardage", "[garment]", "page.tsx").includes("{table.seeAlso.after}"), "ページが案内の続きを出す");
@@ -815,6 +826,8 @@ test("表の右端（裁断図の列）の余白・見出し補足の折り返�
   assert.ok(mine, "最後の列の規則が同じ幅条件の @media の中にある");
   assert.ok(new RegExp(`padding-inline-end: ${fadePx}px`).test(mine), "余白はフェードの幅と同じ");
   assert.ok(/\.yardage-table thead th:last-child small\s*\{\s*white-space: normal;/.test(mine));
+  assert.ok(/\.yardage-table tbody th\s*\{[^}]*position: sticky;[^}]*left: 0;[^}]*background: var\(--bg\);/.test(mine), "行見出しを左に固定する（背景付き）");
+  assert.ok(/\.yardage-table tbody th\s*\{[^}]*word-break: keep-all;/.test(mine), "呼称の途中では折り返さない");
   // @media の外には、最後の列への規則が無い（広い画面と既存の見た目を変えない）。
   const outside = css.replace(mine, "");
   assert.ok(!/th:last-child|td:last-child/.test(outside), "広い画面には効かせない");

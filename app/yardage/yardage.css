@@ -251,7 +251,8 @@
 .yardage-table thead th small {
   white-space: nowrap;
 }
-/* 狭い画面（globals.css の .guide-table-wrap が右端をフェードさせる幅と同じ）だけ:
+/* 狭い画面（globals.css の .guide-table-wrap が右端をフェードさせる幅と同じ）だけ。
+ * 衣服ごとのページの表と、/yardage/ の一覧表（最後の列は生地幅 140cm の数値）の全てに効く:
  * - 最後の列の字がフェードに掛かって切れないよう、右に同じ 28px の余白を取る。
  * - 最後の列（裁断図）の見出し補足は「生地幅」と数字の間で折り返して列を細く保つ。
  *   1 行のままだと表が横にはみ出し、右端の字が切れる。
@@ -263,6 +264,24 @@
   }
   .yardage-table thead th:last-child small {
     white-space: normal;
+  }
+  /* 横に送ると行見出し（丈・ヒップ等）が画面の外へ出て、どの行の数字か分からなくなる。
+   * 行見出しの列を左に固定し、呼称付きの長い見出しは折り返して幅を取りすぎないようにする。 */
+  .yardage-table thead th:first-child,
+  .yardage-table tbody th {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--bg);
+    /* 下を通る数字との境目。 */
+    box-shadow: 1px 0 0 var(--border);
+  }
+  .yardage-table tbody th {
+    white-space: normal;
+    min-width: 4.5rem;
+    max-width: 9rem;
+    /* 「96cm」と「（フルレングス）」の間でだけ折り返し、呼称の途中では割らない。 */
+    word-break: keep-all;
   }
 }
 
