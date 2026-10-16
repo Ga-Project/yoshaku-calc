@@ -223,7 +223,7 @@ function YardageTable({ table }: { table: BuiltTable }) {
         <p className="paper-note">
           {table.seeAlso.text}
           <Link className="yardage-keep" href={`/yardage/${table.seeAlso.slug}/`}>{table.seeAlso.name}の用尺早見表</Link>
-          で確かめてください。
+          {table.seeAlso.after}
         </p>
       )}
     </section>
