@@ -725,24 +725,67 @@ test("ハーフパンツ: 本文の『縦に積まれる／横に並べられる
   }
 });
 
-test("ハーフパンツの早見表は、丈の行がすべて短い側にあり、含まないパーツを明記する", () => {
+test("ハーフパンツの早見表: 丈の行は入力範囲内で、含まないものを tips に一本で明記し、断定を避ける", () => {
   const guide = getGuide("shorts");
   const axis = guide.axes.find((a) => a.key === "shortsLen");
   const input = getGarment("shorts").inputs.find((i) => i.key === "shortsLen");
   for (const row of axis.rows) assert.ok(row.value >= input.min && row.value <= input.max, `${row.label}: 入力範囲内`);
-  assert.ok(Math.max(...axis.rows.map((r) => r.value)) < getGarment("pants").inputs.find((i) => i.key === "pantsLen").def);
-  assert.ok(guide.tips.some((t) => t.includes("ポケット") && t.includes("別に見積もって")), "含まないパーツを明記する");
-  assert.ok(guide.pieces.includes("ポケット") && guide.pieces.includes("含みません"));
+  assert.ok(guide.base.shortsLen >= input.min && guide.base.shortsLen <= input.max);
+  // 含まないパーツの案内は tips の 1 か所だけにする（pieces・lead に重ねて書かない）。
+  const notIncluded = (t) => t.includes("ポケット") && t.includes("ゴムの通し代") && t.includes("別に見積もって");
+  assert.equal(guide.tips.filter(notIncluded).length, 1, "tips に 1 件");
+  assert.ok(!guide.pieces.includes("ポケット") && !guide.lead.includes("ポケット"), "pieces・lead に重ねない");
+  assert.ok(/見込んでいます/.test(guide.lead) && !/だけで仕立てます/.test(guide.lead), "lead は見込みの範囲として書く");
+  assert.ok(!/夏/.test(guide.description + guide.lead), "季節の用途を主張しない");
+  assert.ok(getGarment("shorts").blurb.includes("ポケット") && getGarment("shorts").blurb.includes("ゴムの通し代"));
+  // 丈の行は身長・体型で意味が変わる呼称（ひざ丈・ハーフ等）を付けない。
+  for (const row of axis.rows) assert.ok(!/（/.test(row.label), `${row.label}: 呼称を付けない`);
 });
 
-test("パンツの丈別の表から、ハーフパンツの早見表へ案内する（短い丈の行はハーフパンツ側に揃っている）", () => {
+test("ハーフパンツ: 『ヒップ別の表で前後が横に並ばなくなる行』は配置から出ていて、その行で必要な長さが他の行より大きく増える", () => {
+  const guide = getGuide("shorts");
+  const tips = derivedTipsFor(guide).join("\n");
+  const axis = guide.axes.find((a) => a.key === "hip");
+  const table = buildTable(guide, axis);
+  let lostCount = 0;
+  table.widths.forEach((w, i) => {
+    for (let k = 1; k < table.rows.length; k += 1) {
+      const prev = sameRow("shorts", w, { ...guide.base, hip: table.rows[k - 1].value }, "前パンツ", "後パンツ");
+      const cur = sameRow("shorts", w, { ...guide.base, hip: table.rows[k].value }, "前パンツ", "後パンツ");
+      const said = tips.includes(`${w}cm 幅は ${table.rows[k].label} の行から`);
+      assert.equal(said, prev && !cur, `${w}cm 幅・${table.rows[k].label}: 本文に載る ⇔ 並ぶ→並ばない`);
+      if (!(prev && !cur)) continue;
+      lostCount += 1;
+      const inc = (j) => table.rows[j].cells[i].totalCm - table.rows[j - 1].cells[i].totalCm;
+      for (let j = 1; j < table.rows.length; j += 1) {
+        if (j !== k) assert.ok(inc(k) > inc(j), `${w}cm 幅: ${table.rows[k].label} の増え方 ${inc(k)}cm > ${table.rows[j].label} の ${inc(j)}cm`);
+      }
+    }
+  });
+  assert.ok(lostCount > 0, "前提: 並ばなくなる箇所がある（空のまま通さない）");
+});
+
+test("ハーフパンツ: パンツとの案内は、数値の境界（丈の上限）で書いている", () => {
+  const shorts = getGuide("shorts");
+  const sAxis = shorts.axes.find((a) => a.key === "shortsLen");
+  const input = getGarment("shorts").inputs.find((i) => i.key === "shortsLen");
+  const back = buildTable(shorts, sAxis);
+  assert.equal(back.seeAlso?.slug, "pants", "ハーフパンツからパンツへ案内する");
+  assert.ok(back.seeAlso.text.includes(`${input.max}cm を超える`), "案内の境界は入力の上限と一致");
   const pants = getGuide("pants");
-  const axis = pants.axes.find((a) => a.key === "pantsLen");
-  const table = buildTable(pants, axis);
-  assert.deepEqual(
-    table.seeAlso && { slug: table.seeAlso.slug, name: table.seeAlso.name },
-    { slug: "shorts", name: getGuide("shorts").searchName },
-  );
-  const back = buildTable(getGuide("shorts"), getGuide("shorts").axes.find((a) => a.key === "shortsLen"));
-  assert.equal(back.seeAlso?.slug, "pants", "ハーフパンツからパンツへも案内する");
+  const pAxis = pants.axes.find((a) => a.key === "pantsLen");
+  const table = buildTable(pants, pAxis);
+  assert.deepEqual(table.seeAlso && { slug: table.seeAlso.slug, name: table.seeAlso.name }, { slug: "shorts", name: shorts.searchName });
+  // パンツの表のどの行ラベルも、ハーフパンツの丈の呼称と食い違わない（ハーフの呼称はハーフパンツ側だけ）。
+  for (const row of pAxis.rows) assert.ok(!row.label.includes("ハーフ"), `${row.label}: ハーフと呼ばない`);
+  const garmentPage = read("app", "yardage", "[garment]", "page.tsx");
+  assert.ok(garmentPage.includes("href={`/yardage/${table.seeAlso.slug}/`}"));
+});
+
+test("表の右端（裁断図の列）の見出し補足は折り返せて、右端のフェードに掛かる字が出ない余白がある", () => {
+  const css = read("app", "yardage", "yardage.css");
+  assert.ok(/\.yardage-table thead th:last-child small\s*\{\s*white-space: normal;/.test(css));
+  assert.ok(/\.yardage-table th:last-child,\s*\.yardage-table td:last-child\s*\{\s*padding-inline-end: 28px;/.test(css));
+  // 余白の幅は、フェードの幅（globals.css の mask）と同じ 28px。
+  assert.ok(/calc\(100% - 28px\)/.test(read("app", "globals.css")));
 });
