@@ -33,6 +33,7 @@ auditConfig:
     - GHSA-r28c-9q8g-f849   # postcss
     - GHSA-2v37-7h3g-55p8   # nanoid
     - GHSA-28wg-ghj8-5hjv   # nanoid
+    - GHSA-68fv-2mgg-jv7q   # source-map-js (next > postcss・ビルド時のみ)
     # Next サーバ経路(静的 export では Next サーバ未起動＝本番に到達経路なし)
     - GHSA-2xp9-vwfh-vxw4   # CRITICAL: Unauthenticated RCE
     - GHSA-p293-qw3h-jr36   # CRITICAL: Unauthenticated RCE
