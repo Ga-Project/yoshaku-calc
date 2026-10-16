@@ -557,19 +557,27 @@ test("ハーフパンツ: 入力はパンツ丈・ヒップで、前後パンツ
   assert.notEqual(shorts.emoji, getGarment("pants").emoji, "パンツと同じ絵にしない");
 });
 
-test("ハーフパンツ: 同じ丈・ヒップならパンツと同じパーツ寸法（見込み方を共有する）で、丈の範囲はパンツより短い側に取る", () => {
+test("ハーフパンツ: 同じ丈・ヒップならパンツと同じパーツ寸法（見込み方を共有する）で、丈の範囲はパンツの範囲と重なる", () => {
   const pants = getGarment("pants");
   const shorts = getGarment("shorts");
   const sp = shorts.inputs.find((i) => i.key === "shortsLen");
   const pp = pants.inputs.find((i) => i.key === "pantsLen");
-  assert.ok(sp.max < pp.def, "ハーフパンツの丈の上限は、パンツの既定の丈より短い");
+  assert.ok(sp.min < pp.min, "ハーフパンツはパンツの下限より短い丈から受け持つ");
+  assert.ok(sp.max < pp.max && sp.max >= pp.min, "上限はパンツの上限より短く、パンツの範囲と重なる（早見表の案内文の境界）");
+  // 重なる丈（pp.min〜sp.max）は、どちらの種別でも同じ用尺になる。
   for (const hip of [70, 94, 140]) {
-    for (const len of [sp.min, sp.def, sp.max]) {
+    for (let len = sp.min; len <= sp.max; len += 1) {
       assert.deepEqual(
         shorts.pieces({ shortsLen: len, hip }),
         pants.pieces({ pantsLen: len, hip }),
         `丈 ${len}cm・ヒップ ${hip}cm: パーツがパンツと一致`,
       );
+      if (len < pp.min) continue;
+      for (const w of FABRIC_WIDTHS) {
+        const a = computeYardage("shorts", w, { shortsLen: len, hip });
+        const b = computeYardage("pants", w, { pantsLen: len, hip });
+        assert.equal(a.totalCm, b.totalCm, `丈 ${len}cm・ヒップ ${hip}cm@${w}: 重なる丈は同じ用尺`);
+      }
     }
   }
 });
