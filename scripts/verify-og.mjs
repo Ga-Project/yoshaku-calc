@@ -10,6 +10,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeBasePath, siteRoot } from "../lib/url.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const outDir = join(root, "out");
@@ -26,7 +27,9 @@ if (!ORIGIN || !SITE_NAME) {
   console.error("verify-og: app/site.ts の ORIGIN か app/og.ts の siteName を読めない");
   process.exit(1);
 }
-const BASE = `${ORIGIN}${process.env.PAGES_BASE_PATH || ""}`;
+// 本体（next.config.mjs / app/site.ts）と同じ正規化を通す。生の env を連結すると、
+// "/x/" や "x" で本体と検査の期待値がずれて、正しい成果物を誤って落とす／ずれたまま通す。
+const BASE = siteRoot(ORIGIN, process.env.PAGES_BASE_PATH).replace(/\/$/, "");
 const EXPECTED = `${BASE}/og.png`;
 
 // 404 は URL を持たないページなので、配信 URL との突き合わせから外す。
@@ -100,6 +103,41 @@ for (const page of targets) {
   const canonical = pick(/<link rel="canonical" href="([^"]+)"\s*\/?>/);
   if (ogUrl !== expectedUrl) fail(`${where}: og:url が ${ogUrl}（配信先は ${expectedUrl}）`);
   if (canonical !== expectedUrl) fail(`${where}: canonical が ${canonical}（配信先は ${expectedUrl}）`);
+
+  // 構造化データ（JSON-LD）の URL。meta と同じ部品で組み立てているが、meta だけ見ていると
+  // breadcrumb の item や ItemList の url が壊れても素通りする。JSON-LD に入る
+  // 絶対 URL はすべて配信先の下にあり、スラッシュが二重でないこと。
+  const ldBlocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+  if (ldBlocks.length === 0) fail(`${where}: JSON-LD が無い`);
+  const ldUrls = [];
+  const collect = (node) => {
+    if (Array.isArray(node)) return node.forEach(collect);
+    if (node && typeof node === "object") {
+      for (const [key, val] of Object.entries(node)) {
+        // キー名に依存しない: 絶対 URL の文字列は image / logo / sameAs などでもすべて拾う。
+        if (typeof val === "string") {
+          // schema.org の語彙 URL（https://schema.org/...）はこのサイトの URL ではないので除く。
+          if (key !== "@context" && /^https?:\/\//.test(val) && !/^https:\/\/schema\.org\//.test(val)) ldUrls.push(val);
+        } else collect(val);
+      }
+    }
+  };
+  for (const [, raw] of ldBlocks) {
+    try {
+      collect(JSON.parse(raw));
+    } catch {
+      fail(`${where}: JSON-LD が JSON として読めない`);
+    }
+  }
+  for (const u of ldUrls) {
+    if (!(u === `${BASE}/` || u.startsWith(`${BASE}/`)) || u.slice("https://".length).includes("//")) {
+      fail(`${where}: JSON-LD の URL ${u} が配信先 ${BASE}/ の下の正しい URL でない`);
+    }
+  }
+  // 早見表の個別ページは、パンくずの最後がそのページ自身を指すこと。
+  if (/^yardage\/[^/]+\/index\.html$/.test(rel) && !ldUrls.includes(expectedUrl)) {
+    fail(`${where}: JSON-LD にこのページ自身の URL ${expectedUrl} が無い`);
+  }
 }
 
 // 早見表は GUIDES の全種別ぶんが出力され、サイトマップにも載っていること。
@@ -109,6 +147,21 @@ const { GUIDES } = await import("../app/yardage/presets.mjs");
 const sitemapPath = join(outDir, "sitemap.xml");
 const sitemap = existsSync(sitemapPath) ? readFileSync(sitemapPath, "utf8") : "";
 if (!sitemap) fail("out/sitemap.xml が無い");
+// 全 <loc> が配信先の下にあり、スラッシュが二重になっていないこと。トップと早見表一覧も載っていること。
+for (const [, loc] of sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)) {
+  if (!loc.startsWith(`${BASE}/`) || loc.slice("https://".length).includes("//")) {
+    fail(`sitemap.xml の <loc> ${loc} が配信先 ${BASE}/ の下の正しい URL でない`);
+  }
+}
+for (const url of [`${BASE}/`, `${BASE}/yardage/`]) {
+  if (sitemap && !sitemap.includes(`<loc>${url}</loc>`)) fail(`sitemap.xml に ${url} が無い`);
+}
+// robots.txt の Sitemap 行が配信先の sitemap.xml を指していること。
+const robotsPath = join(outDir, "robots.txt");
+const robots = existsSync(robotsPath) ? readFileSync(robotsPath, "utf8") : "";
+if (!robots.split(/\r?\n/).includes(`Sitemap: ${BASE}/sitemap.xml`)) {
+  fail(`out/robots.txt に Sitemap: ${BASE}/sitemap.xml の行が無い`);
+}
 for (const { slug } of GUIDES) {
   const rel = join("yardage", slug, "index.html");
   if (!pages.includes(join(outDir, rel))) fail(`out/${rel} が無い（早見表 ${slug} が出力されていない）`);
@@ -124,12 +177,10 @@ for (const { slug } of GUIDES) {
 //   - ページ内リンク（#id）: 同じ HTML に id 属性としてその値があること（data-testid 等には一致させない）
 //   - 外部 URL（http(s)://・mailto: 等）は対象外
 //   - basePath の外を指すルート相対パスは、配信先では別サイトに飛ぶので壊れたリンクとして扱う。
-//     例外は 404 ページの href="/" だけ（既知の問題で、別に直す。ここで黙って許す範囲を広げない）。
-const BASE_PATH = process.env.PAGES_BASE_PATH || "";
-const KNOWN_BROKEN = new Map([...NO_URL_PAGES].map((p) => [p, new Set(["/"])]));
+//     例外は設けない（404 ページも next/link を使い、basePath 配下に出る）。
+const BASE_PATH = normalizeBasePath(process.env.PAGES_BASE_PATH);
 const outRoot = resolve(outDir);
 let linkCount = 0;
-let knownCount = 0;
 /** 正規表現の特殊文字をエスケープする（id をそのまま埋め込むため）。 */
 const escapeRe = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** %xx を戻す。壊れた符号化は fail に流して null を返し、検査は続ける。 */
@@ -146,12 +197,14 @@ for (const page of pages) {
   const rel = relative(outDir, page);
   for (const m of html.matchAll(/<a\b[^>]*?\shref="([^"]*)"/g)) {
     const href = (m[1] ?? "").replace(/&amp;/g, "&");
-    if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) continue;
-    if (KNOWN_BROKEN.get(rel)?.has(href)) {
-      knownCount += 1;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
+    linkCount += 1;
+    // プロトコル相対（//host/...）はこのサイトでは使わない。連結ミスで先頭が「//」になった
+    // リンクはブラウザでは別ホストへ飛ぶので、外部リンク扱いで読み飛ばさず失敗にする。
+    if (href.startsWith("//")) {
+      fail(`${rel}: リンク ${href} が「//」で始まる（連結ミスか、別ホストへ飛ぶ）`);
       continue;
     }
-    linkCount += 1;
     if (href.startsWith("#")) {
       const id = decode(rel, href, href.slice(1));
       if (id === null) continue;
@@ -171,18 +224,104 @@ for (const page of pages) {
     }
     const decoded = decode(rel, href, path.slice(BASE_PATH.length));
     if (decoded === null) continue;
+    // resolve() はパス中の「//」を黙って畳むので、実在判定の前に連結ミスとして落とす。
+    if (decoded.includes("//")) {
+      fail(`${rel}: リンク ${href} のパスにスラッシュの連続がある`);
+      continue;
+    }
     const inner = decoded.replace(/^\/+/, "");
     const target = resolve(outRoot, inner);
     if (target !== outRoot && !target.startsWith(outRoot + sep)) {
       fail(`${rel}: リンク ${href} が out/ の外を指している`);
       continue;
     }
-    const exists =
-      (existsSync(target) && statSync(target).isFile()) || existsSync(join(target, "index.html"));
-    if (!exists) fail(`${rel}: リンク ${href} の行き先 out/${inner} が無い`);
+    const isFile = existsSync(target) && statSync(target).isFile();
+    const isDirWithIndex = !isFile && existsSync(join(target, "index.html"));
+    if (!isFile && !isDirWithIndex) fail(`${rel}: リンク ${href} の行き先 out/${inner} が無い`);
+    // trailingSlash: true の出力では、ページへのリンクは末尾スラッシュ付きが正規形。
+    else if (isDirWithIndex && !path.endsWith("/")) fail(`${rel}: リンク ${href} が末尾スラッシュ無しのページを指している`);
   }
 }
 if (linkCount === 0) fail("検査したサイト内リンクが 1 つも無い");
 
+// 読み込むアセット（<script src> / <link href>）の行き先が out/ に実在し、basePath 配下にあること。
+// next.config.mjs の assetPrefix がずれると、HTML は正しいのに CSS / JS が全部 404 になる
+// （装飾も動作もないサイトが配信される）。<a> の検査だけではこれを捕まえられない。
+//   - 外部 URL は読み飛ばす。ただしプロトコル相対（//host/...）はこのサイトでは
+//     計測タグ 1 件だけなので、名指しで許し、それ以外は連結ミスとして落とす。
+//   - canonical など rel が URL を指すだけの <link> は、上の meta / canonical 検査の担当なので除く。
+const ALLOWED_PROTOCOL_RELATIVE = new Set(["//gc.zgo.at/count.js"]);
+let assetCount = 0;
+for (const page of pages) {
+  const html = readFileSync(page, "utf8");
+  const rel = relative(outDir, page);
+  const refs = [
+    ...[...html.matchAll(/<script\b[^>]*?\ssrc="([^"]*)"/g)].map((m) => m[1]),
+    ...[...html.matchAll(/<link\b(?![^>]*\srel="(?:canonical|alternate)")[^>]*?\shref="([^"]*)"/g)].map((m) => m[1]),
+  ];
+  for (const raw of refs) {
+    const ref = (raw ?? "").replace(/&amp;/g, "&");
+    if (/^[a-z][a-z0-9+.-]*:/i.test(ref)) continue;
+    if (ref.startsWith("//")) {
+      if (!ALLOWED_PROTOCOL_RELATIVE.has(ref)) fail(`${rel}: アセット ${ref} が「//」で始まる（許可した外部参照ではない）`);
+      continue;
+    }
+    assetCount += 1;
+    const path = ref.startsWith("/") ? new URL(ref, "https://x").pathname : null;
+    if (path === null || (BASE_PATH && !path.startsWith(`${BASE_PATH}/`))) {
+      fail(`${rel}: アセット ${ref} が basePath（${BASE_PATH || "なし"}）配下の絶対パスでない`);
+      continue;
+    }
+    const decodedPath = decode(rel, ref, path.slice(BASE_PATH.length));
+    if (decodedPath === null) continue;
+    const inner = decodedPath.replace(/^\/+/, "");
+    const target = resolve(outRoot, inner);
+    if (inner.includes("//") || !target.startsWith(outRoot + sep) || !existsSync(target) || !statSync(target).isFile()) {
+      fail(`${rel}: アセット ${ref} の行き先 out/${inner} が無い`);
+    }
+  }
+}
+if (assetCount === 0) fail("検査したアセットが 1 つも無い");
+
+// トップの「生地幅の比較表」に出る作業幅・並べる幅が、計算本体（computeYardage）の
+// 結果と一致すること。表は読み物の静的テキストで、計算とは別の経路で数字が出るため、
+// 一方だけ直すと表と計算結果の図が食い違ったまま配信される。出力された HTML の表を読む。
+{
+  const { computeYardage, FABRIC_WIDTHS, GARMENTS } = await import("../lib/calc.mjs");
+  const topPath = join(outDir, "index.html");
+  const top = existsSync(topPath) ? readFileSync(topPath, "utf8") : "";
+  const table = top.match(/<table class="guide-table">([\s\S]*?)<\/table>/)?.[1];
+  if (!table) {
+    fail("out/index.html に生地幅の比較表が無い");
+  } else {
+    const text = (cell) => cell.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, "").trim();
+    const rows = [...table.matchAll(/<tr><th scope="row">([^<]*(?:<!-- -->[^<]*)*)<\/th>((?:<td>[\s\S]*?<\/td>)+)<\/tr>/g)].map((m) => ({
+      width: text(m[1]),
+      cells: [...m[2].matchAll(/<td>([\s\S]*?)<\/td>/g)].map((c) => text(c[1])),
+    }));
+    if (rows.length !== FABRIC_WIDTHS.length) {
+      fail(`生地幅の比較表の行数が ${rows.length}（期待 ${FABRIC_WIDTHS.length}）`);
+    }
+    for (const w of FABRIC_WIDTHS) {
+      const row = rows.find((r) => r.width === `${w}cm`);
+      if (!row) {
+        fail(`生地幅の比較表に ${w}cm の行が無い`);
+        continue;
+      }
+      // 全衣服で同じ値になること自体も確かめる（衣服ごとに作業幅が違う設計になったら表が嘘になる）。
+      for (const g of GARMENTS) {
+        const res = computeYardage(g.id, w, {});
+        const [working, usable] = row.cells.slice(-2);
+        if (working !== `${res.workingWidth}cm`) {
+          fail(`生地幅の比較表: ${w}cm の作業幅が ${working}（${g.id} の計算は ${res.workingWidth}cm）`);
+        }
+        if (usable !== `${res.usableWidth}cm`) {
+          fail(`生地幅の比較表: ${w}cm の並べる幅が ${usable}（${g.id} の計算は ${res.usableWidth}cm）`);
+        }
+      }
+    }
+  }
+}
+
 if (failed) process.exit(1);
-console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている（サイト内リンク ${linkCount} 件の行き先も確認・既知の除外 ${knownCount} 件）`);
+console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている（サイト内リンク ${linkCount} 件・アセット ${assetCount} 件の行き先も確認）`);

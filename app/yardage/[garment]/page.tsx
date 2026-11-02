@@ -8,7 +8,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "../../JsonLd";
-import { SITE_URL } from "../../site";
+import { SITE_URL, pageUrl } from "../../site";
 import { socialMeta } from "../../og";
 import {
   GUIDES,
@@ -50,7 +50,7 @@ export function generateMetadata({ params }: Params): Metadata {
     ...socialMeta({
       title,
       description: guide.description,
-      url: `${SITE_URL}${path}`,
+      url: pageUrl(path),
       type: "article",
     }),
   };
@@ -71,8 +71,8 @@ export default function GarmentYardagePage({ params }: Params) {
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "用尺カルク", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "用尺早見表", item: `${SITE_URL}yardage/` },
-      { "@type": "ListItem", position: 3, name: title, item: `${SITE_URL}${path}` },
+      { "@type": "ListItem", position: 2, name: "用尺早見表", item: pageUrl("yardage/") },
+      { "@type": "ListItem", position: 3, name: title, item: pageUrl(path) },
     ],
   };
 
