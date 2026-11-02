@@ -269,7 +269,9 @@ for (const page of pages) {
       fail(`${rel}: アセット ${ref} が basePath（${BASE_PATH || "なし"}）配下の絶対パスでない`);
       continue;
     }
-    const inner = decodeURIComponent(path.slice(BASE_PATH.length)).replace(/^\/+/, "");
+    const decodedPath = decode(rel, ref, path.slice(BASE_PATH.length));
+    if (decodedPath === null) continue;
+    const inner = decodedPath.replace(/^\/+/, "");
     const target = resolve(outRoot, inner);
     if (inner.includes("//") || !target.startsWith(outRoot + sep) || !existsSync(target) || !statSync(target).isFile()) {
       fail(`${rel}: アセット ${ref} の行き先 out/${inner} が無い`);
