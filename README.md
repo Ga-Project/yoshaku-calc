@@ -44,7 +44,7 @@ GitHub Pages（GitHub Actions で自動デプロイ）。`main` への push で 
 `pnpm build` → `out/` の公開を `.github/workflows/pages.yml` が直列に実行する。ゲート不合格ならデプロイされない。
 
 プロジェクトページ（`<owner>.github.io/yoshaku-calc/` のようなサブパス配信）の場合のみ、
-`next.config.mjs` に `basePath: "/yoshaku-calc"` / `assetPrefix: "/yoshaku-calc/"` を足す。
+ビルド時に環境変数 `PAGES_BASE_PATH=/yoshaku-calc` を渡す（`next.config.mjs` の basePath / assetPrefix と、canonical・サイトマップの URL がこの値から決まる。書き方の揺れは `lib/url.mjs` が吸収する）。
 
 ## 構成
 
