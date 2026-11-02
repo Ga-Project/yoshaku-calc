@@ -494,7 +494,7 @@ test("耳の説明は計算の定数と一致する（FAQ・生地幅の表・�
   const guide = read("app", "Guide.tsx");
   assert.ok(guide.includes("${SELVAGE_CM}cm を除いた幅にパーツを配置"), "FAQ の耳の幅は SELVAGE_CM から入る");
   assert.ok(!/作業幅＝生地幅÷2 で配置/.test(guide), "耳を無視した旧い説明が残っていない");
-  assert.ok(guide.includes("{w / 2 - SELVAGE_CM}cm"), "生地幅の表の『並べる幅』は定数から出す");
+  assert.ok(guide.includes("{usableWidthOf(w)}cm"), "生地幅の表の『並べる幅』は計算と同じ関数から出す");
   const garmentPage = read("app", "yardage", "[garment]", "page.tsx");
   assert.ok(garmentPage.includes("{SELVAGE_CM}cm を除いた幅に収まらず"), "幅不足の説明に耳が入る");
   const readme = read("README.md");
@@ -533,7 +533,7 @@ test("コートの早見表ページが生成対象・サイトマップ・一�
   const garmentPage = read("app", "yardage", "[garment]", "page.tsx");
   assert.ok(/generateStaticParams\(\)\s*\{\s*return GUIDES\.map\(\(g\) => \(\{ garment: g\.slug \}\)\)/.test(garmentPage));
   const sitemap = read("app", "sitemap.ts");
-  assert.ok(/GUIDES\.map\(\(g\) => \(\{\s*url: `\$\{SITE_URL\}yardage\/\$\{g\.slug\}\/`/.test(sitemap));
+  assert.ok(/GUIDES\.map\(\(g\) => \(\{\s*url: pageUrl\(`yardage\/\$\{g\.slug\}\/`\)/.test(sitemap));
   const index = read("app", "yardage", "page.tsx");
   assert.ok(index.includes("itemListElement: GUIDES.map("), "一覧の構造化データも GUIDES から作る");
   assert.ok(buildOverview().rows.some((r) => r.guide.slug === "coat"), "代表的な一着の比較表に入る");

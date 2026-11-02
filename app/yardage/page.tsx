@@ -3,7 +3,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "../JsonLd";
-import { SITE_URL } from "../site";
+import { SITE_URL, pageUrl } from "../site";
 import { socialMeta } from "../og";
 import { getGarment } from "@/lib/calc.mjs";
 import { GUIDES, buildOverview } from "./presets.mjs";
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   ...socialMeta({
     title: TITLE,
     description: DESC,
-    url: `${SITE_URL}yardage/`,
+    url: pageUrl("yardage/"),
     type: "article",
   }),
 };
@@ -46,14 +46,14 @@ export default function YardageIndex() {
       "@type": "ListItem",
       position: i + 1,
       name: `${g.searchName}の用尺早見表`,
-      url: `${SITE_URL}yardage/${g.slug}/`,
+      url: pageUrl(`yardage/${g.slug}/`),
     })),
   };
   const breadcrumb = {
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "用尺カルク", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "用尺早見表", item: `${SITE_URL}yardage/` },
+      { "@type": "ListItem", position: 2, name: "用尺早見表", item: pageUrl("yardage/") },
     ],
   };
 
