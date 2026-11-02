@@ -116,7 +116,8 @@ for (const page of targets) {
       for (const [key, val] of Object.entries(node)) {
         // キー名に依存しない: 絶対 URL の文字列は image / logo / sameAs などでもすべて拾う。
         if (typeof val === "string") {
-          if (key !== "@context" && /^https?:\/\//.test(val)) ldUrls.push(val);
+          // schema.org の語彙 URL（https://schema.org/...）はこのサイトの URL ではないので除く。
+          if (key !== "@context" && /^https?:\/\//.test(val) && !/^https:\/\/schema\.org\//.test(val)) ldUrls.push(val);
         } else collect(val);
       }
     }
@@ -234,9 +235,11 @@ for (const page of pages) {
       fail(`${rel}: リンク ${href} が out/ の外を指している`);
       continue;
     }
-    const exists =
-      (existsSync(target) && statSync(target).isFile()) || existsSync(join(target, "index.html"));
-    if (!exists) fail(`${rel}: リンク ${href} の行き先 out/${inner} が無い`);
+    const isFile = existsSync(target) && statSync(target).isFile();
+    const isDirWithIndex = !isFile && existsSync(join(target, "index.html"));
+    if (!isFile && !isDirWithIndex) fail(`${rel}: リンク ${href} の行き先 out/${inner} が無い`);
+    // trailingSlash: true の出力では、ページへのリンクは末尾スラッシュ付きが正規形。
+    else if (isDirWithIndex && !path.endsWith("/")) fail(`${rel}: リンク ${href} が末尾スラッシュ無しのページを指している`);
   }
 }
 if (linkCount === 0) fail("検査したサイト内リンクが 1 つも無い");

@@ -15,7 +15,7 @@
 #   (output:"export" では未起動)」で、静的書き出しの出荷物(out/)の攻撃面に到達しないものだけ。
 #   本製品は GitHub Pages が out/ を配信するのみで Next サーバを持たない。
 #   ⚠️再評価: SSR/API Route/middleware を導入 or Node で self-host したら、Next サーバ経路の
-#            エントリを撤去し next を 15.5.24+ へ更新すること。
+#            エントリを撤去し next を 15.5.28+ へ更新すること。
 auditConfig:
   ignoreGhsas:
     # dev ツール専用(eslint/lint 実行時のみ・出荷物 out/ に非含有)
