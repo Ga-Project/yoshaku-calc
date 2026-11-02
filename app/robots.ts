@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "./site";
+import { pageUrl } from "./site";
 
 // static export では out/robots.txt として書き出される。
 // クロールを明示的に許可し、sitemap の在り処を検索エンジンに知らせる。
@@ -13,6 +13,6 @@ export const dynamic = "force-static";
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: { userAgent: "*", allow: "/" },
-    sitemap: `${SITE_URL}sitemap.xml`,
+    sitemap: pageUrl("sitemap.xml"),
   };
 }

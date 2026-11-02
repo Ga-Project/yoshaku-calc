@@ -184,5 +184,45 @@ for (const page of pages) {
 }
 if (linkCount === 0) fail("検査したサイト内リンクが 1 つも無い");
 
+// トップの「生地幅の比較表」に出る作業幅・並べる幅が、計算本体（computeYardage）の
+// 結果と一致すること。表は読み物の静的テキストで、計算とは別の経路で数字が出るため、
+// 一方だけ直すと表と計算結果の図が食い違ったまま配信される。出力された HTML の表を読む。
+{
+  const { computeYardage, FABRIC_WIDTHS, GARMENTS } = await import("../lib/calc.mjs");
+  const topPath = join(outDir, "index.html");
+  const top = existsSync(topPath) ? readFileSync(topPath, "utf8") : "";
+  const table = top.match(/<table class="guide-table">([\s\S]*?)<\/table>/)?.[1];
+  if (!table) {
+    fail("out/index.html に生地幅の比較表が無い");
+  } else {
+    const text = (cell) => cell.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, "").trim();
+    const rows = [...table.matchAll(/<tr><th scope="row">([^<]*(?:<!-- -->[^<]*)*)<\/th>((?:<td>[\s\S]*?<\/td>)+)<\/tr>/g)].map((m) => ({
+      width: text(m[1]),
+      cells: [...m[2].matchAll(/<td>([\s\S]*?)<\/td>/g)].map((c) => text(c[1])),
+    }));
+    if (rows.length !== FABRIC_WIDTHS.length) {
+      fail(`生地幅の比較表の行数が ${rows.length}（期待 ${FABRIC_WIDTHS.length}）`);
+    }
+    for (const w of FABRIC_WIDTHS) {
+      const row = rows.find((r) => r.width === `${w}cm`);
+      if (!row) {
+        fail(`生地幅の比較表に ${w}cm の行が無い`);
+        continue;
+      }
+      // 全衣服で同じ値になること自体も確かめる（衣服ごとに作業幅が違う設計になったら表が嘘になる）。
+      for (const g of GARMENTS) {
+        const res = computeYardage(g.id, w, {});
+        const [working, usable] = row.cells.slice(-2);
+        if (working !== `${res.workingWidth}cm`) {
+          fail(`生地幅の比較表: ${w}cm の作業幅が ${working}（${g.id} の計算は ${res.workingWidth}cm）`);
+        }
+        if (usable !== `${res.usableWidth}cm`) {
+          fail(`生地幅の比較表: ${w}cm の並べる幅が ${usable}（${g.id} の計算は ${res.usableWidth}cm）`);
+        }
+      }
+    }
+  }
+}
+
 if (failed) process.exit(1);
 console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている（サイト内リンク ${linkCount} 件の行き先も確認・既知の除外 ${knownCount} 件）`);

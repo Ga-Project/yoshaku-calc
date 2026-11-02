@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FABRIC_WIDTHS, SELVAGE_CM } from "@/lib/calc.mjs";
+import { FABRIC_WIDTHS, SELVAGE_CM, usableWidthOf, workingWidthOf } from "@/lib/calc.mjs";
 
 // 用尺の読み物セクション（静的テキスト）。
 //
@@ -93,8 +93,8 @@ export default function Guide() {
                   <th scope="row">{w}cm</th>
                   <td>{WIDTH_INFO[w]?.name}</td>
                   <td>{WIDTH_INFO[w]?.fabrics}</td>
-                  <td>{w / 2}cm</td>
-                  <td>{w / 2 - SELVAGE_CM}cm</td>
+                  <td>{workingWidthOf(w)}cm</td>
+                  <td>{usableWidthOf(w)}cm</td>
                 </tr>
               ))}
             </tbody>
