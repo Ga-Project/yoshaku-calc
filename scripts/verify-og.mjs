@@ -10,6 +10,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeBasePath, siteRoot } from "../lib/url.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const outDir = join(root, "out");
@@ -26,7 +27,9 @@ if (!ORIGIN || !SITE_NAME) {
   console.error("verify-og: app/site.ts の ORIGIN か app/og.ts の siteName を読めない");
   process.exit(1);
 }
-const BASE = `${ORIGIN}${process.env.PAGES_BASE_PATH || ""}`;
+// 本体（next.config.mjs / app/site.ts）と同じ正規化を通す。生の env を連結すると、
+// "/x/" や "x" で本体と検査の期待値がずれて、正しい成果物を誤って落とす／ずれたまま通す。
+const BASE = siteRoot(ORIGIN, process.env.PAGES_BASE_PATH).replace(/\/$/, "");
 const EXPECTED = `${BASE}/og.png`;
 
 // 404 は URL を持たないページなので、配信 URL との突き合わせから外す。
@@ -109,6 +112,21 @@ const { GUIDES } = await import("../app/yardage/presets.mjs");
 const sitemapPath = join(outDir, "sitemap.xml");
 const sitemap = existsSync(sitemapPath) ? readFileSync(sitemapPath, "utf8") : "";
 if (!sitemap) fail("out/sitemap.xml が無い");
+// 全 <loc> が配信先の下にあり、スラッシュが二重になっていないこと。トップと早見表一覧も載っていること。
+for (const [, loc] of sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)) {
+  if (!loc.startsWith(`${BASE}/`) || loc.slice("https://".length).includes("//")) {
+    fail(`sitemap.xml の <loc> ${loc} が配信先 ${BASE}/ の下の正しい URL でない`);
+  }
+}
+for (const url of [`${BASE}/`, `${BASE}/yardage/`]) {
+  if (sitemap && !sitemap.includes(`<loc>${url}</loc>`)) fail(`sitemap.xml に ${url} が無い`);
+}
+// robots.txt の Sitemap 行が配信先の sitemap.xml を指していること。
+const robotsPath = join(outDir, "robots.txt");
+const robots = existsSync(robotsPath) ? readFileSync(robotsPath, "utf8") : "";
+if (!robots.split(/\r?\n/).includes(`Sitemap: ${BASE}/sitemap.xml`)) {
+  fail(`out/robots.txt に Sitemap: ${BASE}/sitemap.xml の行が無い`);
+}
 for (const { slug } of GUIDES) {
   const rel = join("yardage", slug, "index.html");
   if (!pages.includes(join(outDir, rel))) fail(`out/${rel} が無い（早見表 ${slug} が出力されていない）`);
@@ -125,7 +143,7 @@ for (const { slug } of GUIDES) {
 //   - 外部 URL（http(s)://・mailto: 等）は対象外
 //   - basePath の外を指すルート相対パスは、配信先では別サイトに飛ぶので壊れたリンクとして扱う。
 //     例外は 404 ページの href="/" だけ（既知の問題で、別に直す。ここで黙って許す範囲を広げない）。
-const BASE_PATH = process.env.PAGES_BASE_PATH || "";
+const BASE_PATH = normalizeBasePath(process.env.PAGES_BASE_PATH);
 const KNOWN_BROKEN = new Map([...NO_URL_PAGES].map((p) => [p, new Set(["/"])]));
 const outRoot = resolve(outDir);
 let linkCount = 0;
