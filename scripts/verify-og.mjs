@@ -103,6 +103,38 @@ for (const page of targets) {
   const canonical = pick(/<link rel="canonical" href="([^"]+)"\s*\/?>/);
   if (ogUrl !== expectedUrl) fail(`${where}: og:url が ${ogUrl}（配信先は ${expectedUrl}）`);
   if (canonical !== expectedUrl) fail(`${where}: canonical が ${canonical}（配信先は ${expectedUrl}）`);
+
+  // 構造化データ（JSON-LD）の URL。meta と同じ部品で組み立てているが、meta だけ見ていると
+  // breadcrumb の item や ItemList の url が壊れても素通りする。url / item / @id に入る
+  // 絶対 URL はすべて配信先の下にあり、スラッシュが二重でないこと。
+  const ldBlocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+  if (ldBlocks.length === 0) fail(`${where}: JSON-LD が無い`);
+  const ldUrls = [];
+  const collect = (node) => {
+    if (Array.isArray(node)) return node.forEach(collect);
+    if (node && typeof node === "object") {
+      for (const [key, val] of Object.entries(node)) {
+        if (["url", "item", "@id"].includes(key) && typeof val === "string") ldUrls.push(val);
+        else collect(val);
+      }
+    }
+  };
+  for (const [, raw] of ldBlocks) {
+    try {
+      collect(JSON.parse(raw));
+    } catch {
+      fail(`${where}: JSON-LD が JSON として読めない`);
+    }
+  }
+  for (const u of ldUrls) {
+    if (!(u === `${BASE}/` || u.startsWith(`${BASE}/`)) || u.slice("https://".length).includes("//")) {
+      fail(`${where}: JSON-LD の URL ${u} が配信先 ${BASE}/ の下の正しい URL でない`);
+    }
+  }
+  // 早見表の個別ページは、パンくずの最後がそのページ自身を指すこと。
+  if (/^yardage\/[^/]+\/index\.html$/.test(rel) && !ldUrls.includes(expectedUrl)) {
+    fail(`${where}: JSON-LD にこのページ自身の URL ${expectedUrl} が無い`);
+  }
 }
 
 // 早見表は GUIDES の全種別ぶんが出力され、サイトマップにも載っていること。
