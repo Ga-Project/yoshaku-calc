@@ -38,6 +38,8 @@ auditConfig:
     - GHSA-2xp9-vwfh-vxw4   # CRITICAL: Unauthenticated RCE
     - GHSA-p293-qw3h-jr36   # CRITICAL: Unauthenticated RCE
     - GHSA-36qx-fr4f-26g5   # middleware/proxy bypass
+    - GHSA-2464-fhr4-w9xw   # CRITICAL: 画像最適化 API の RCE（images.unoptimized + 静的 export で画像最適化サーバ未起動）
+    - GHSA-p3m5-59mp-jv5r   # App Router の Server Actions DoS（Server Actions 不使用・Next サーバ未起動）
     - GHSA-89xv-2m56-2m9x   # SSRF
     - GHSA-8h8q-6873-q5fj   # DoS
     - GHSA-c4j6-fc7j-m34r   # SSRF
