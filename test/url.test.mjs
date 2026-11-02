@@ -38,7 +38,7 @@ test("joinUrl はパス先頭のスラッシュの有無・ルートの末尾ス
   assert.equal(joinUrl(siteRoot(ORIGIN, "/x/"), "/sitemap.xml").replace("https://", "").includes("//"), false);
 });
 
-test("読み物の表が使う作業幅・並べる幅は、全衣服の計算結果と一致する", () => {
+test("作業幅・並べる幅の定義は、全衣服の計算結果と整合する（表と計算の突き合わせは verify-og が配信HTMLで行う）", () => {
   for (const w of FABRIC_WIDTHS) {
     for (const g of GARMENTS) {
       const res = computeYardage(g.id, w, {});

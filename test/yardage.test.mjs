@@ -495,6 +495,8 @@ test("耳の説明は計算の定数と一致する（FAQ・生地幅の表・�
   assert.ok(guide.includes("${SELVAGE_CM}cm を除いた幅にパーツを配置"), "FAQ の耳の幅は SELVAGE_CM から入る");
   assert.ok(!/作業幅＝生地幅÷2 で配置/.test(guide), "耳を無視した旧い説明が残っていない");
   assert.ok(guide.includes("{usableWidthOf(w)}cm"), "生地幅の表の『並べる幅』は計算と同じ関数から出す");
+  assert.ok(guide.includes("{workingWidthOf(w)}cm"), "生地幅の表の『作業幅』は計算と同じ関数から出す");
+  assert.ok(!guide.includes("{w / 2}cm"), "作業幅を直書きの式で出していない");
   const garmentPage = read("app", "yardage", "[garment]", "page.tsx");
   assert.ok(garmentPage.includes("{SELVAGE_CM}cm を除いた幅に収まらず"), "幅不足の説明に耳が入る");
   const readme = read("README.md");
