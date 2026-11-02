@@ -3,7 +3,7 @@
 // OGP 画像の絶対 URL 解決（metadataBase）・canonical・sitemap / robots が
 // すべて同じ URL を指すように、ここ一箇所で組み立てる。
 // GitHub Pages のプロジェクトページ配信では basePath ぶんがパスに乗るため、
-// ビルド時の PAGES_BASE_PATH（pages.yml が渡す）を末尾に連結する。
+// ビルド時の PAGES_BASE_PATH（pages.yml が渡す）を lib/url.mjs で正規化して連結する。
 
 import { joinUrl, siteRoot } from "@/lib/url.mjs";
 

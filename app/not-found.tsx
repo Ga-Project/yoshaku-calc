@@ -4,6 +4,7 @@
 // page.tsx と同じランドマーク（header / main / footer）・h1 は1つ・skip-link を持つ。
 
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "ページが見つかりません — yoshaku-calc",
@@ -20,13 +21,13 @@ export default function NotFound() {
 
       <header className="app-header">
         <div className="container">
-          <a
+          <Link
             href="/"
             className="app-title"
             style={{ textDecoration: "none", color: "var(--text)" }}
           >
             用<span className="mark">尺</span>カルク
-          </a>
+          </Link>
           <span className="app-tagline">
             衣服別・必要生地量（用尺）と裁断レイアウトの早見ツール
           </span>
@@ -60,9 +61,9 @@ export default function NotFound() {
                 が誤っている可能性があります。
               </p>
               <div className="hero-actions" style={{ justifyContent: "center" }}>
-                <a className="btn btn-primary" href="/">
+                <Link className="btn btn-primary" href="/">
                   計算ツールへ戻る
-                </a>
+                </Link>
               </div>
             </div>
           </div>

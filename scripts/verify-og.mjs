@@ -174,12 +174,10 @@ for (const { slug } of GUIDES) {
 //   - ページ内リンク（#id）: 同じ HTML に id 属性としてその値があること（data-testid 等には一致させない）
 //   - 外部 URL（http(s)://・mailto: 等）は対象外
 //   - basePath の外を指すルート相対パスは、配信先では別サイトに飛ぶので壊れたリンクとして扱う。
-//     例外は 404 ページの href="/" だけ（既知の問題で、別に直す。ここで黙って許す範囲を広げない）。
+//     例外は設けない（404 ページも next/link を使い、basePath 配下に出る）。
 const BASE_PATH = normalizeBasePath(process.env.PAGES_BASE_PATH);
-const KNOWN_BROKEN = new Map([...NO_URL_PAGES].map((p) => [p, new Set(["/"])]));
 const outRoot = resolve(outDir);
 let linkCount = 0;
-let knownCount = 0;
 /** 正規表現の特殊文字をエスケープする（id をそのまま埋め込むため）。 */
 const escapeRe = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** %xx を戻す。壊れた符号化は fail に流して null を返し、検査は続ける。 */
@@ -197,10 +195,6 @@ for (const page of pages) {
   for (const m of html.matchAll(/<a\b[^>]*?\shref="([^"]*)"/g)) {
     const href = (m[1] ?? "").replace(/&amp;/g, "&");
     if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) continue;
-    if (KNOWN_BROKEN.get(rel)?.has(href)) {
-      knownCount += 1;
-      continue;
-    }
     linkCount += 1;
     if (href.startsWith("#")) {
       const id = decode(rel, href, href.slice(1));
@@ -275,4 +269,4 @@ if (linkCount === 0) fail("検査したサイト内リンクが 1 つも無い")
 }
 
 if (failed) process.exit(1);
-console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている（サイト内リンク ${linkCount} 件の行き先も確認・既知の除外 ${knownCount} 件）`);
+console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている（サイト内リンク ${linkCount} 件の行き先も確認）`);
