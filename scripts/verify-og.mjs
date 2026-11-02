@@ -105,7 +105,7 @@ for (const page of targets) {
   if (canonical !== expectedUrl) fail(`${where}: canonical が ${canonical}（配信先は ${expectedUrl}）`);
 
   // 構造化データ（JSON-LD）の URL。meta と同じ部品で組み立てているが、meta だけ見ていると
-  // breadcrumb の item や ItemList の url が壊れても素通りする。url / item / @id に入る
+  // breadcrumb の item や ItemList の url が壊れても素通りする。JSON-LD に入る
   // 絶対 URL はすべて配信先の下にあり、スラッシュが二重でないこと。
   const ldBlocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
   if (ldBlocks.length === 0) fail(`${where}: JSON-LD が無い`);
@@ -114,8 +114,10 @@ for (const page of targets) {
     if (Array.isArray(node)) return node.forEach(collect);
     if (node && typeof node === "object") {
       for (const [key, val] of Object.entries(node)) {
-        if (["url", "item", "@id"].includes(key) && typeof val === "string") ldUrls.push(val);
-        else collect(val);
+        // キー名に依存しない: 絶対 URL の文字列は image / logo / sameAs などでもすべて拾う。
+        if (typeof val === "string") {
+          if (key !== "@context" && /^https?:\/\//.test(val)) ldUrls.push(val);
+        } else collect(val);
       }
     }
   };
@@ -239,6 +241,43 @@ for (const page of pages) {
 }
 if (linkCount === 0) fail("検査したサイト内リンクが 1 つも無い");
 
+// 読み込むアセット（<script src> / <link href>）の行き先が out/ に実在し、basePath 配下にあること。
+// next.config.mjs の assetPrefix がずれると、HTML は正しいのに CSS / JS が全部 404 になる
+// （装飾も動作もないサイトが配信される）。<a> の検査だけではこれを捕まえられない。
+//   - 外部 URL は読み飛ばす。ただしプロトコル相対（//host/...）はこのサイトでは
+//     計測タグ 1 件だけなので、名指しで許し、それ以外は連結ミスとして落とす。
+//   - canonical など rel が URL を指すだけの <link> は、上の meta / canonical 検査の担当なので除く。
+const ALLOWED_PROTOCOL_RELATIVE = new Set(["//gc.zgo.at/count.js"]);
+let assetCount = 0;
+for (const page of pages) {
+  const html = readFileSync(page, "utf8");
+  const rel = relative(outDir, page);
+  const refs = [
+    ...[...html.matchAll(/<script\b[^>]*?\ssrc="([^"]*)"/g)].map((m) => m[1]),
+    ...[...html.matchAll(/<link\b(?![^>]*\srel="(?:canonical|alternate)")[^>]*?\shref="([^"]*)"/g)].map((m) => m[1]),
+  ];
+  for (const raw of refs) {
+    const ref = (raw ?? "").replace(/&amp;/g, "&");
+    if (/^[a-z][a-z0-9+.-]*:/i.test(ref)) continue;
+    if (ref.startsWith("//")) {
+      if (!ALLOWED_PROTOCOL_RELATIVE.has(ref)) fail(`${rel}: アセット ${ref} が「//」で始まる（許可した外部参照ではない）`);
+      continue;
+    }
+    assetCount += 1;
+    const path = ref.startsWith("/") ? new URL(ref, "https://x").pathname : null;
+    if (path === null || (BASE_PATH && !path.startsWith(`${BASE_PATH}/`))) {
+      fail(`${rel}: アセット ${ref} が basePath（${BASE_PATH || "なし"}）配下の絶対パスでない`);
+      continue;
+    }
+    const inner = decodeURIComponent(path.slice(BASE_PATH.length)).replace(/^\/+/, "");
+    const target = resolve(outRoot, inner);
+    if (inner.includes("//") || !target.startsWith(outRoot + sep) || !existsSync(target) || !statSync(target).isFile()) {
+      fail(`${rel}: アセット ${ref} の行き先 out/${inner} が無い`);
+    }
+  }
+}
+if (assetCount === 0) fail("検査したアセットが 1 つも無い");
+
 // トップの「生地幅の比較表」に出る作業幅・並べる幅が、計算本体（computeYardage）の
 // 結果と一致すること。表は読み物の静的テキストで、計算とは別の経路で数字が出るため、
 // 一方だけ直すと表と計算結果の図が食い違ったまま配信される。出力された HTML の表を読む。
@@ -280,4 +319,4 @@ if (linkCount === 0) fail("検査したサイト内リンクが 1 つも無い")
 }
 
 if (failed) process.exit(1);
-console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている（サイト内リンク ${linkCount} 件の行き先も確認）`);
+console.log(`verify-og: ${targets.length} ページすべてに ${EXPECTED} が載っている（サイト内リンク ${linkCount} 件・アセット ${assetCount} 件の行き先も確認）`);
