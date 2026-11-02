@@ -194,8 +194,14 @@ for (const page of pages) {
   const rel = relative(outDir, page);
   for (const m of html.matchAll(/<a\b[^>]*?\shref="([^"]*)"/g)) {
     const href = (m[1] ?? "").replace(/&amp;/g, "&");
-    if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) continue;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
     linkCount += 1;
+    // プロトコル相対（//host/...）はこのサイトでは使わない。連結ミスで先頭が「//」になった
+    // リンクはブラウザでは別ホストへ飛ぶので、外部リンク扱いで読み飛ばさず失敗にする。
+    if (href.startsWith("//")) {
+      fail(`${rel}: リンク ${href} が「//」で始まる（連結ミスか、別ホストへ飛ぶ）`);
+      continue;
+    }
     if (href.startsWith("#")) {
       const id = decode(rel, href, href.slice(1));
       if (id === null) continue;
@@ -215,6 +221,11 @@ for (const page of pages) {
     }
     const decoded = decode(rel, href, path.slice(BASE_PATH.length));
     if (decoded === null) continue;
+    // resolve() はパス中の「//」を黙って畳むので、実在判定の前に連結ミスとして落とす。
+    if (decoded.includes("//")) {
+      fail(`${rel}: リンク ${href} のパスにスラッシュの連続がある`);
+      continue;
+    }
     const inner = decoded.replace(/^\/+/, "");
     const target = resolve(outRoot, inner);
     if (target !== outRoot && !target.startsWith(outRoot + sep)) {
