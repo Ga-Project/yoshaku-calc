@@ -27,6 +27,7 @@ import {
   derivedTipsFor,
   findRepresentativeRow,
   getGuide,
+  sideBySide,
 } from "../app/yardage/presets.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -952,7 +953,7 @@ test("キュロット: 『ヒップ別の表で前後が横に並ばなくなる
   assert.ok(lostCount > 0, "前提: 並ばなくなる箇所がある（空のまま通さない）");
 });
 
-test("キュロット⇔スカート・パンツ・ハーフパンツの案内は、入力範囲と配置の数値から書かれ、案内先が存在し、リンクが重複しない", () => {
+test("キュロット⇔スカート・パンツ・ハーフパンツの案内は、入力範囲から書かれ、案内先が存在し、自分自身を指さない", () => {
   const cIn = getGarment("culottes").inputs.find((i) => i.key === "culottesLen");
   const range = `${cIn.min}〜${cIn.max}cm`;
   const find = (slug, key) => {
@@ -976,9 +977,10 @@ test("キュロット⇔スカート・パンツ・ハーフパンツの案内�
   assert.equal(toP?.slug, "pants");
   assert.equal(toS?.slug, "skirt");
   // 逆向きの案内が『広がらない／分かれていない』と言う向きは、実際のパーツ幅（キュロットのほうが広い）と合っている。
+  // 案内文が比べる相手はキュロット自身で、パーツ幅はキュロットのほうが広い（全ヒップは lead のテストで固定）。
   const cw = getGarment("culottes").pieces({ culottesLen: 65, hip: 94 })[0].w;
-  assert.ok(cw > getGarment("pants").pieces({ pantsLen: 65, hip: 94 })[0].w && toP.text.includes("広がらない"), "キュロット→パンツ: パンツは広がらない側");
-  assert.ok(cw > getGarment("skirt").pieces({ skirtLen: 65, hip: 94 })[0].w && toS.text.includes("分かれていない"), "キュロット→スカート: スカートは脚が分かれていない側");
+  assert.ok(cw > getGarment("pants").pieces({ pantsLen: 65, hip: 94 })[0].w && toP.text.includes("キュロットほど裾が広がらない"), "キュロット→パンツ: キュロットほど広がらない側");
+  assert.ok(toS.text.includes("脚が分かれていない"), "キュロット→スカート: 脚の有無で区別する");
   assert.equal(toP.name, getGuide("pants").searchName);
   assert.equal(toS.name, getGuide("skirt").searchName);
   // 既存の案内（ハーフパンツ⇔パンツの丈の境界）は変わらない。
@@ -1003,6 +1005,14 @@ test("キュロット: 幅が広い型紙の注意は、ヒップ別の表で前
     const rows = guide.axes.find((a) => a.key === "hip").rows;
     return rows.some((r, k) => k > 0 && sameRow("culottes", w, { ...guide.base, hip: rows[k - 1].value }, "前パンツ", "後パンツ") && !sameRow("culottes", w, { ...guide.base, hip: r.value }, "前パンツ", "後パンツ"));
   });
+  // 前後が横に並ばなくなる行が無いと偽ったとき、注意は出ない（出ない側の分岐を実行して固定する）。
+  const none = guide.derivedTips({
+    baseCells: () => baseCells(guide),
+    sideBySide: (w, a, b) => sideBySide(guide, w, a, b),
+    besideLost: () => [],
+    m: (v) => `${v.toFixed(1)}m`,
+  });
+  assert.ok(!none.some((t) => t.includes("ギャザー") || t.includes("の行から")), "横並びが崩れる行が無ければ注意も出ない");
   const gi = tips.findIndex((t) => t.includes("ギャザー"));
   assert.equal(gi >= 0, lostAny, "注意は横並びが崩れる行があるときだけ出る");
   if (gi >= 0) assert.ok(tips[gi - 1].includes("の行から"), "崩れる行の注記の直後に出る");

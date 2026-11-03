@@ -261,7 +261,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "culottes",
-          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツは、`,
+          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、裾へ向かってスカートのように大きく広がる二股のパンツは、`,
         },
       },
       {
@@ -330,7 +330,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "culottes",
-          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツは、`,
+          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、裾へ向かってスカートのように大きく広がる二股のパンツは、`,
         },
       },
     ],
@@ -393,7 +393,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "culottes",
-          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツは、`,
+          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、裾へ向かってスカートのように大きく広がる二股のパンツは、`,
         },
       },
     ],
@@ -423,7 +423,7 @@ export const GUIDES = [
     searchName: "キュロット",
     description:
       "キュロットに必要な生地の長さ（用尺）を、キュロット丈・ヒップと生地幅 90／110／140cm の組み合わせで一覧にした早見表。スカートのように広がる二股のパンツの見積りに。",
-    lead: `キュロット（スカートのように広がる、二股に分かれたパンツ）の用尺です。この表では、前後 2 枚とウエストベルトを見込み、前後のパーツの幅をパンツの早見表より ${EXTRA_OVER_PANTS}cm、スカートの早見表より ${EXTRA_OVER_SKIRT}cm 広く見込んでいます。丈が長いほど、必要な長さは増えます。`,
+    lead: `キュロット（スカートのように広がる二股のパンツ）の用尺です。この表では、前後 2 枚とウエストベルトを見込み、同じヒップで比べて、前後のパーツの幅をパンツの早見表より ${EXTRA_OVER_PANTS}cm、スカートの早見表より ${EXTRA_OVER_SKIRT}cm 広く見込んでいます。丈が長いほど、必要な長さは増えます。`,
     pieces: "前パンツ・後パンツを、二つ折りの生地から左右の脚ぶんを一度に裁つものとして 1 組ずつ、ウエストベルトを 1 本。",
     base: CULOTTES_BASE,
     axes: [
@@ -441,7 +441,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "pants",
-          text: `脚が分かれていて、スカートほど広がらないパンツは、`,
+          text: `キュロットほど裾が広がらない、ふつうのパンツは、`,
         },
       },
       {
@@ -458,7 +458,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "skirt",
-          text: `脚が分かれていないスカートは、`,
+          text: `脚が分かれていない、ふつうのスカートは、`,
         },
       },
     ],
@@ -491,7 +491,7 @@ export const GUIDES = [
         tips.push(jump);
         // 前後が横に並べなくなる行があるときだけ、幅が広い型紙の注意を続ける（その行の注記と隣り合わせ）。
         tips.push(
-          "ギャザーやタックを入れるなどして型紙の幅が広くなると、生地幅によっては前後を横に並べられず、用尺が増えることがあります。表の数字は、表と同じ幅の型紙のときの下限とお考えください。",
+          "ギャザーやタックを入れるなどして型紙の幅が広くなると、生地幅によっては前後を横に並べられず、用尺が増えることがあります。型紙の幅が表の想定のままなら、表の数字が下限です。",
         );
       }
       return tips;
