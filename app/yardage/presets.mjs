@@ -95,7 +95,12 @@ function widthExtra(otherId, otherLenKey) {
     const cs = getGarment("culottes").pieces({ culottesLen: CULOTTES_BASE.culottesLen, hip });
     const os = other.pieces({ [otherLenKey]: CULOTTES_BASE.culottesLen, hip });
     // 前パンツ・後パンツの両方の幅を比べる（案内文は「前後のパーツ」と言う）。
-    for (const i of [0, 1]) diffs.add(cs[i].w - os[i].w);
+    for (const i of [0, 1]) {
+      if (!cs[i].label.startsWith(i === 0 ? "前" : "後") || !os[i].label.startsWith(i === 0 ? "前" : "後")) {
+        throw new Error(`piece order changed: ${cs[i].label} / ${os[i].label}`);
+      }
+      diffs.add(cs[i].w - os[i].w);
+    }
   }
   if (diffs.size !== 1) throw new Error(`culottes width extra over ${otherId} is not constant: ${[...diffs].join(",")}`);
   const extra = [...diffs][0];
@@ -256,7 +261,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "culottes",
-          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツ（前後のパーツ 1 枚あたりの幅をこの表より ${EXTRA_OVER_SKIRT}cm 広く見込みます）は、`,
+          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツは、`,
         },
       },
       {
@@ -325,7 +330,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "culottes",
-          text: `スカートのように広がる二股のパンツ（前後のパーツ 1 枚あたりの幅をこの表より ${EXTRA_OVER_PANTS}cm 広く見込みます）は、`,
+          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツは、`,
         },
       },
     ],
@@ -436,7 +441,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "pants",
-          text: `脚が分かれていて、裾の広がりを抑えたパンツ（前後のパーツ 1 枚あたりの幅をこの表より ${EXTRA_OVER_PANTS}cm 狭く見込みます）は、`,
+          text: `脚まわりのゆとりを小さめに見込んだパンツは、`,
         },
       },
       {
@@ -453,13 +458,12 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "skirt",
-          text: `脚が分かれていないスカート（前後のパーツ 1 枚あたりの幅をこの表より ${EXTRA_OVER_SKIRT}cm 狭く見込みます）は、`,
+          text: `脚が分かれていないスカートは、`,
         },
       },
     ],
     tips: [
       "この表で見込んでいるのは前後パンツとウエストベルトだけです。ポケット・飾りのテープなどを付ける場合は、そのぶんを別に見積もってください。ゴムを通す場合は、仕立て方によって別に必要なことがあります。",
-      "ギャザーやタックを入れるなどして型紙の幅が表より広くなると、生地幅によっては前後を横に並べられず、用尺が増えることがあります。表の数字は、この表と同じ幅の型紙を前提とした目安です。",
     ],
     // 「縦に積まれる／横に並ぶ」と、そのときの長さは配置から導出する。
     derivedTips: (h) => {
@@ -484,6 +488,10 @@ export const GUIDES = [
       // ヒップ別の表で、前後が横に並べなくなって必要な長さが跳ねる行は、配置から探して言う。
       const jump = besideLostTip(h, "hip", "前パンツ", "後パンツ");
       if (jump) tips.push(jump);
+      // 配置の話に続けて、型紙の幅が広い場合の注意を置く（ヒップ別の表の注記と隣り合わせにする）。
+      tips.push(
+        "ギャザーやタックを入れるなどして型紙の幅が表より広くなると、生地幅によっては前後を横に並べられず、用尺が増えることがあります。表の数字は、型紙の幅が表のとおりのときの下限とお考えください。",
+      );
       return tips;
     },
   },

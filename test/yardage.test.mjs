@@ -960,16 +960,13 @@ test("キュロット⇔スカート・パンツ・ハーフパンツの案内�
     const t = buildTable(g, g.axes.find((a) => a.key === key));
     return t.seeAlso;
   };
-  // 他ページ → キュロット: 丈の範囲と、パーツ幅の差（lead と同じ値）。
-  const lead = getGuide("culottes").lead;
-  const toPants = Number(lead.match(/パンツより (\d+)cm/)[1]);
-  const toSkirt = Number(lead.match(/スカートより (\d+)cm/)[1]);
+  // 他ページ → キュロット: 入力範囲から作った丈の範囲と、どんな型かを言う。
   const fromSkirt = find("skirt", "skirtLen");
   assert.equal(fromSkirt?.slug, "culottes");
-  assert.ok(fromSkirt.text.includes(range) && fromSkirt.text.includes(`${toSkirt}cm 広く`), "スカート→キュロット: 範囲と差");
+  assert.ok(fromSkirt.text.includes(range) && fromSkirt.text.includes("二股"), "スカート→キュロット: 丈の範囲とどんな型か");
   const fromPants = find("pants", "hip");
   assert.equal(fromPants?.slug, "culottes");
-  assert.ok(fromPants.text.includes(`${toPants}cm 広く`), "パンツ→キュロット: 差");
+  assert.ok(fromPants.text.includes(range) && fromPants.text.includes("二股"), "パンツ→キュロット: 丈の範囲とどんな型か");
   const fromShorts = find("shorts", "hip");
   assert.equal(fromShorts?.slug, "culottes");
   assert.ok(fromShorts.text.includes(range), "ハーフパンツ→キュロット: 丈の範囲");
@@ -978,7 +975,7 @@ test("キュロット⇔スカート・パンツ・ハーフパンツの案内�
   const toS = find("culottes", "hip");
   assert.equal(toP?.slug, "pants");
   assert.equal(toS?.slug, "skirt");
-  assert.ok(toP.text.includes(`${toPants}cm 狭く`) && toS.text.includes(`${toSkirt}cm 狭く`), "逆向きの差も同じ数値");
+  assert.ok(toP.text.includes("パンツ") && toS.text.includes("スカート"), "逆向きの案内は相手の型を言う");
   assert.equal(toP.name, getGuide("pants").searchName);
   assert.equal(toS.name, getGuide("skirt").searchName);
   // 既存の案内（ハーフパンツ⇔パンツの丈の境界）は変わらない。
