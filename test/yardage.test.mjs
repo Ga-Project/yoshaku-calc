@@ -867,8 +867,8 @@ test("キュロットの lead『丈が長いほど必要な長さは増える』
 test("キュロットの lead『パンツより 6cm・スカートより 8cm 広く見込む』は、入力範囲の全ヒップのパーツ幅の差で成立する", () => {
   const guide = getGuide("culottes");
   const hipIn = getGarment("culottes").inputs.find((i) => i.key === "hip");
-  const toPants = guide.lead.match(/パンツより (\d+)cm/);
-  const toSkirt = guide.lead.match(/スカートより (\d+)cm/);
+  const toPants = guide.lead.match(/パンツの早見表より (\d+)cm/);
+  const toSkirt = guide.lead.match(/スカートの早見表より (\d+)cm/);
   assert.ok(toPants && toSkirt, "前提: lead が両方の数値を言っている");
   for (let hip = hipIn.min; hip <= hipIn.max; hip += 1) {
     const c = getGarment("culottes").pieces({ culottesLen: guide.base.culottesLen, hip })[0].w;
@@ -975,7 +975,10 @@ test("キュロット⇔スカート・パンツ・ハーフパンツの案内�
   const toS = find("culottes", "hip");
   assert.equal(toP?.slug, "pants");
   assert.equal(toS?.slug, "skirt");
-  assert.ok(toP.text.includes("パンツ") && toS.text.includes("スカート"), "逆向きの案内は相手の型を言う");
+  // 逆向きの案内が『広がらない／分かれていない』と言う向きは、実際のパーツ幅（キュロットのほうが広い）と合っている。
+  const cw = getGarment("culottes").pieces({ culottesLen: 65, hip: 94 })[0].w;
+  assert.ok(cw > getGarment("pants").pieces({ pantsLen: 65, hip: 94 })[0].w && toP.text.includes("広がらない"), "キュロット→パンツ: パンツは広がらない側");
+  assert.ok(cw > getGarment("skirt").pieces({ skirtLen: 65, hip: 94 })[0].w && toS.text.includes("分かれていない"), "キュロット→スカート: スカートは脚が分かれていない側");
   assert.equal(toP.name, getGuide("pants").searchName);
   assert.equal(toS.name, getGuide("skirt").searchName);
   // 既存の案内（ハーフパンツ⇔パンツの丈の境界）は変わらない。
@@ -991,4 +994,16 @@ test("キュロット⇔スカート・パンツ・ハーフパンツの案内�
   // 案内先が無い slug はビルドを落とす。
   const g = getGuide("culottes");
   assert.throws(() => buildTable(g, { ...g.axes[0], seeAlso: { slug: "no-such", text: "" } }), /unknown seeAlso/);
+});
+
+test("キュロット: 幅が広い型紙の注意は、ヒップ別の表で前後が横に並ばなくなる行があるときだけ、その注記の直後に出る", () => {
+  const guide = getGuide("culottes");
+  const tips = derivedTipsFor(guide);
+  const lostAny = FABRIC_WIDTHS.some((w) => {
+    const rows = guide.axes.find((a) => a.key === "hip").rows;
+    return rows.some((r, k) => k > 0 && sameRow("culottes", w, { ...guide.base, hip: rows[k - 1].value }, "前パンツ", "後パンツ") && !sameRow("culottes", w, { ...guide.base, hip: r.value }, "前パンツ", "後パンツ"));
+  });
+  const gi = tips.findIndex((t) => t.includes("ギャザー"));
+  assert.equal(gi >= 0, lostAny, "注意は横並びが崩れる行があるときだけ出る");
+  if (gi >= 0) assert.ok(tips[gi - 1].includes("の行から"), "崩れる行の注記の直後に出る");
 });
