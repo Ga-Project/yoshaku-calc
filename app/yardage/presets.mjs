@@ -92,12 +92,16 @@ function widthExtra(otherId, otherLenKey) {
   if (!hips || !other) throw new Error(`unknown garment: ${otherId}`);
   const diffs = new Set();
   for (let hip = hips.min; hip <= hips.max; hip += 1) {
-    const c = getGarment("culottes").pieces({ culottesLen: CULOTTES_BASE.culottesLen, hip })[0].w;
-    const o = other.pieces({ [otherLenKey]: CULOTTES_BASE.culottesLen, hip })[0].w;
-    diffs.add(c - o);
+    const cs = getGarment("culottes").pieces({ culottesLen: CULOTTES_BASE.culottesLen, hip });
+    const os = other.pieces({ [otherLenKey]: CULOTTES_BASE.culottesLen, hip });
+    // 前パンツ・後パンツの両方の幅を比べる（案内文は「前後のパーツ」と言う）。
+    for (const i of [0, 1]) diffs.add(cs[i].w - os[i].w);
   }
   if (diffs.size !== 1) throw new Error(`culottes width extra over ${otherId} is not constant: ${[...diffs].join(",")}`);
-  return [...diffs][0];
+  const extra = [...diffs][0];
+  // 案内文は「広く」と固定で書くので、キュロットのほうが広くなくなったらビルドを落とす。
+  if (!(extra > 0)) throw new Error(`culottes must be wider than ${otherId}: ${extra}`);
+  return extra;
 }
 const EXTRA_OVER_PANTS = widthExtra("pants", "pantsLen");
 const EXTRA_OVER_SKIRT = widthExtra("skirt", "skirtLen");
@@ -252,7 +256,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "culottes",
-          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツ（前後のパーツの幅をこの表より ${EXTRA_OVER_SKIRT}cm 広く見込みます）は、`,
+          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツ（前後のパーツ 1 枚あたりの幅をこの表より ${EXTRA_OVER_SKIRT}cm 広く見込みます）は、`,
         },
       },
       {
@@ -321,7 +325,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "culottes",
-          text: `スカートのように広がる二股のパンツ（前後のパーツの幅をこの表より ${EXTRA_OVER_PANTS}cm 広く見込みます）は、`,
+          text: `スカートのように広がる二股のパンツ（前後のパーツ 1 枚あたりの幅をこの表より ${EXTRA_OVER_PANTS}cm 広く見込みます）は、`,
         },
       },
     ],
@@ -432,7 +436,7 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "pants",
-          text: `脚をまっすぐ細く仕立てるパンツ（前後のパーツの幅をこの表より ${EXTRA_OVER_PANTS}cm 狭く見込みます）は、`,
+          text: `脚が分かれていて、裾の広がりを抑えたパンツ（前後のパーツ 1 枚あたりの幅をこの表より ${EXTRA_OVER_PANTS}cm 狭く見込みます）は、`,
         },
       },
       {
@@ -449,13 +453,13 @@ export const GUIDES = [
         ],
         seeAlso: {
           slug: "skirt",
-          text: `脚が分かれていないスカート（前後のパーツの幅をこの表より ${EXTRA_OVER_SKIRT}cm 狭く見込みます）は、`,
+          text: `脚が分かれていないスカート（前後のパーツ 1 枚あたりの幅をこの表より ${EXTRA_OVER_SKIRT}cm 狭く見込みます）は、`,
         },
       },
     ],
     tips: [
       "この表で見込んでいるのは前後パンツとウエストベルトだけです。ポケット・飾りのテープなどを付ける場合は、そのぶんを別に見積もってください。ゴムを通す場合は、仕立て方によって別に必要なことがあります。",
-      "ギャザーやタックを入れてさらにボリュームを出す型紙は、表より幅を食います。表の数字は直線的な型紙を前提とした目安とお考えください。",
+      "ギャザーやタックを入れるなどして型紙の幅が表より広くなると、生地幅によっては前後を横に並べられず、用尺が増えることがあります。表の数字は、この表と同じ幅の型紙を前提とした目安です。",
     ],
     // 「縦に積まれる／横に並ぶ」と、そのときの長さは配置から導出する。
     derivedTips: (h) => {
@@ -468,10 +472,13 @@ export const GUIDES = [
         tips.push(
           `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。`,
         );
-      } else if (stacked.length === at.length && at.length > 0) {
+      } else if (stacked.length === FABRIC_WIDTHS.length) {
+        // 全ての生地幅が幅不足なく計算できて、かつ全部が縦積みのときだけ言う。
         const ms = at.map((c) => c.totalM);
+        const gap = Math.max(...ms) - Math.min(...ms);
+        const gapText = gap > 0 ? `生地幅による差は最大 ${h.m(gap)} です。` : "生地幅によって必要な長さは変わりません。";
         tips.push(
-          `表の標準的な寸法では、どの生地幅でも前後が縦に積まれ、必要な長さは ${list(stacked)} です。生地幅による差は最大 ${h.m(Math.max(...ms) - Math.min(...ms))} です。`,
+          `表の標準的な寸法では、どの生地幅でも前後が縦に積まれ、必要な長さは ${list(stacked)} です。${gapText}`,
         );
       }
       // ヒップ別の表で、前後が横に並べなくなって必要な長さが跳ねる行は、配置から探して言う。

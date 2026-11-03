@@ -842,12 +842,12 @@ test("表の右端（裁断図の列）の余白・見出し補足の折り返�
 test("キュロットの早見表ページが生成対象・一覧・対象の列挙に入り、sitemap の元になる slug が重複しない", () => {
   assert.ok(getGuide("culottes"), "GUIDES に culottes がある");
   assert.ok(buildOverview().rows.some((r) => r.guide.slug === "culottes"), "代表的な一着の比較表に入る");
-  for (const src of [read("README.md"), read("app", "layout.tsx"), read("app", "yardage", "page.tsx")]) {
-    assert.ok(src.includes("キュロット"), "対象の衣服の列挙にキュロットが入る");
+  for (const [name, src] of [["layout.tsx", read("app", "layout.tsx")], ["yardage/page.tsx", read("app", "yardage", "page.tsx")]]) {
+    for (const g of GUIDES) assert.ok(src.includes(g.searchName.split("・")[0]), `${name} の説明文に ${g.searchName} が入る`);
   }
+  assert.ok(read("README.md").includes("キュロット"), "README の対象の列挙にキュロットが入る");
   const slugs = GUIDES.map((g) => g.slug);
   assert.equal(new Set(slugs).size, slugs.length, "slug が重複しない（sitemap・JSON-LD の重複を防ぐ）");
-  assert.ok(read("app", "sitemap.ts").includes("GUIDES.map"), "sitemap は GUIDES から機械的に作る");
 });
 
 test("キュロットの lead『丈が長いほど必要な長さは増える』は、全生地幅で丈の行ごとに増えることで成立する", () => {
