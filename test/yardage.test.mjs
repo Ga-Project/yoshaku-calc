@@ -986,7 +986,7 @@ test("キュロット⇔スカート・パンツ・ハーフパンツの案内�
   // 既存の案内（ハーフパンツ⇔パンツの丈の境界）は変わらない。
   assert.equal(find("pants", "pantsLen")?.slug, "shorts");
   assert.equal(find("shorts", "shortsLen")?.slug, "pants");
-  // 1 つの表に案内は 1 つだけ（リンクが重複しない）。
+  // 自分自身へ案内しない（案内は軸ごとに 1 つだけ持てる構造）。
   for (const g of GUIDES) {
     for (const a of g.axes) {
       const t = buildTable(g, a);
@@ -1016,4 +1016,21 @@ test("キュロット: 幅が広い型紙の注意は、ヒップ別の表で前
   const gi = tips.findIndex((t) => t.includes("ギャザー"));
   assert.equal(gi >= 0, lostAny, "注意は横並びが崩れる行があるときだけ出る");
   if (gi >= 0) assert.ok(tips[gi - 1].includes("の行から"), "崩れる行の注記の直後に出る");
+});
+
+test("キュロット: 縦積みと横並びが混在するとき、本文は幅ごとに正しい側へ振り分け、『どの生地幅でも』とは言わない", () => {
+  const guide = getGuide("culottes");
+  // base では全幅が縦積みなので、140cm 幅だけ横に並ぶと偽って、混在の枝を実行して固定する。
+  const mixed = guide.derivedTips({
+    baseCells: () => baseCells(guide),
+    sideBySide: (w) => w === 140,
+    besideLost: () => [],
+    m: (v) => `${v.toFixed(1)}m`,
+  });
+  const text = mixed.join("\n");
+  const at = baseCells(guide);
+  const m = (w) => at.find((c) => c.fabricWidth === w).totalM.toFixed(1);
+  assert.ok(text.includes(`前後が縦に積まれる 90cm 幅で ${m(90)}m、110cm 幅で ${m(110)}m`), "縦積みの側に 90・110cm 幅");
+  assert.ok(text.includes(`前後を横に並べられる 140cm 幅で ${m(140)}m`), "横並びの側に 140cm 幅");
+  assert.ok(!text.includes("どの生地幅でも"), "混在なのに全幅縦積みとは言わない");
 });
