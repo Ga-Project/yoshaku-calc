@@ -77,6 +77,31 @@ export const OVERLAP_LEN = { min: PANTS_LEN.min, max: SHORTS_LEN.max };
 /** ハーフパンツの早見表で固定する寸法。表題・固定寸法の注記はここから作る。 */
 const SHORTS_BASE = { shortsLen: 50, hip: 94 };
 
+/** キュロットの早見表で固定する寸法。表題・固定寸法の注記はここから作る。 */
+const CULOTTES_BASE = { culottesLen: 65, hip: 94 };
+const CULOTTES_LEN = LEN_RANGE("culottes", "culottesLen");
+
+/**
+ * キュロットの前後パーツの幅が、パンツ・スカートより何 cm 広いか。案内文の数値はここから作る。
+ * ヒップの値によらず一定（どちらも 1/4 に定数を足して丸めるだけ）なので、入力範囲の全ての
+ * ヒップで一致することを確かめ、一致しなければビルドを落とす（文言だけが古い数値になるのを防ぐ）。
+ */
+function widthExtra(otherId, otherLenKey) {
+  const hips = getGarment("culottes").inputs.find((i) => i.key === "hip");
+  const other = getGarment(otherId);
+  if (!hips || !other) throw new Error(`unknown garment: ${otherId}`);
+  const diffs = new Set();
+  for (let hip = hips.min; hip <= hips.max; hip += 1) {
+    const c = getGarment("culottes").pieces({ culottesLen: CULOTTES_BASE.culottesLen, hip })[0].w;
+    const o = other.pieces({ [otherLenKey]: CULOTTES_BASE.culottesLen, hip })[0].w;
+    diffs.add(c - o);
+  }
+  if (diffs.size !== 1) throw new Error(`culottes width extra over ${otherId} is not constant: ${[...diffs].join(",")}`);
+  return [...diffs][0];
+}
+const EXTRA_OVER_PANTS = widthExtra("pants", "pantsLen");
+const EXTRA_OVER_SKIRT = widthExtra("skirt", "skirtLen");
+
 /**
  * ある軸で、前後のパーツが横に並べなくなって必要な長さが一段と増える行の注記。
  * 該当が無ければ null。
@@ -225,6 +250,10 @@ export const GUIDES = [
           { value: 75, label: "75cm（ミモレ）" },
           { value: 90, label: "90cm（ロング）" },
         ],
+        seeAlso: {
+          slug: "culottes",
+          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツ（前後のパーツの幅をこの表より ${EXTRA_OVER_SKIRT}cm 広く見込みます）は、`,
+        },
       },
       {
         key: "hip",
@@ -290,6 +319,10 @@ export const GUIDES = [
           { value: 102, label: "102cm" },
           { value: 110, label: "110cm" },
         ],
+        seeAlso: {
+          slug: "culottes",
+          text: `スカートのように広がる二股のパンツ（前後のパーツの幅をこの表より ${EXTRA_OVER_PANTS}cm 広く見込みます）は、`,
+        },
       },
     ],
     tips: [
@@ -349,6 +382,10 @@ export const GUIDES = [
           { value: 102, label: "102cm" },
           { value: 110, label: "110cm" },
         ],
+        seeAlso: {
+          slug: "culottes",
+          text: `丈が ${CULOTTES_LEN.min}〜${CULOTTES_LEN.max}cm で、スカートのように広がる二股のパンツは、`,
+        },
       },
     ],
     tips: [
@@ -364,6 +401,77 @@ export const GUIDES = [
       if (stacked.length > 0 && beside.length > 0) {
         tips.push(
           `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。`,
+        );
+      }
+      // ヒップ別の表で、前後が横に並べなくなって必要な長さが跳ねる行は、配置から探して言う。
+      const jump = besideLostTip(h, "hip", "前パンツ", "後パンツ");
+      if (jump) tips.push(jump);
+      return tips;
+    },
+  },
+  {
+    slug: "culottes",
+    searchName: "キュロット",
+    description:
+      "キュロットに必要な生地の長さ（用尺）を、キュロット丈・ヒップと生地幅 90／110／140cm の組み合わせで一覧にした早見表。スカートのように広がる二股のパンツの見積りに。",
+    lead: `キュロット（スカートのように広がる、二股に分かれたパンツ）の用尺です。この表では、前後 2 枚とウエストベルトを見込み、前後のパーツの幅をパンツより ${EXTRA_OVER_PANTS}cm、スカートより ${EXTRA_OVER_SKIRT}cm 広く見込んでいます。丈が長いほど、必要な長さは増えます。`,
+    pieces: "前パンツ・後パンツを、二つ折りの生地から左右の脚ぶんを一度に裁つものとして 1 組ずつ、ウエストベルトを 1 本。",
+    base: CULOTTES_BASE,
+    axes: [
+      {
+        key: "culottesLen",
+        caption: `キュロット丈別の用尺（ヒップ ${CULOTTES_BASE.hip}cm）`,
+        rowHeader: "キュロット丈",
+        fixedNote: `ヒップ ${CULOTTES_BASE.hip}cm で固定したときの必要な長さ`,
+        rows: [
+          { value: 45, label: "45cm" },
+          { value: 55, label: "55cm" },
+          { value: 65, label: "65cm" },
+          { value: 75, label: "75cm" },
+          { value: 85, label: "85cm" },
+        ],
+        seeAlso: {
+          slug: "pants",
+          text: `脚をまっすぐ細く仕立てるパンツ（前後のパーツの幅をこの表より ${EXTRA_OVER_PANTS}cm 狭く見込みます）は、`,
+        },
+      },
+      {
+        key: "hip",
+        caption: `ヒップ別の用尺（キュロット丈 ${CULOTTES_BASE.culottesLen}cm）`,
+        rowHeader: "ヒップ",
+        fixedNote: `キュロット丈 ${CULOTTES_BASE.culottesLen}cm で固定したときの必要な長さ`,
+        rows: [
+          { value: 78, label: "78cm" },
+          { value: 86, label: "86cm" },
+          { value: 94, label: "94cm" },
+          { value: 102, label: "102cm" },
+          { value: 110, label: "110cm" },
+        ],
+        seeAlso: {
+          slug: "skirt",
+          text: `脚が分かれていないスカート（前後のパーツの幅をこの表より ${EXTRA_OVER_SKIRT}cm 狭く見込みます）は、`,
+        },
+      },
+    ],
+    tips: [
+      "この表で見込んでいるのは前後パンツとウエストベルトだけです。ポケット・飾りのテープなどを付ける場合は、そのぶんを別に見積もってください。ゴムを通す場合は、仕立て方によって別に必要なことがあります。",
+      "ギャザーやタックを入れてさらにボリュームを出す型紙は、表より幅を食います。表の数字は直線的な型紙を前提とした目安とお考えください。",
+    ],
+    // 「縦に積まれる／横に並ぶ」と、そのときの長さは配置から導出する。
+    derivedTips: (h) => {
+      const at = h.baseCells();
+      const stacked = at.filter((c) => !h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
+      const beside = at.filter((c) => h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
+      const list = (cs) => cs.map((c) => `${c.fabricWidth}cm 幅で ${h.m(c.totalM)}`).join("、");
+      const tips = [];
+      if (stacked.length > 0 && beside.length > 0) {
+        tips.push(
+          `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。`,
+        );
+      } else if (stacked.length === at.length && at.length > 0) {
+        const ms = at.map((c) => c.totalM);
+        tips.push(
+          `表の標準的な寸法では、どの生地幅でも前後が縦に積まれ、必要な長さは ${list(stacked)} です。生地幅による差は最大 ${h.m(Math.max(...ms) - Math.min(...ms))} です。`,
         );
       }
       // ヒップ別の表で、前後が横に並べなくなって必要な長さが跳ねる行は、配置から探して言う。
