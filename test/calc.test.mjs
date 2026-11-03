@@ -22,8 +22,8 @@ function defaults(garment) {
   return v;
 }
 
-test("GARMENTS は9種別・各々が入力定義と pieces 関数を持つ", () => {
-  assert.equal(GARMENTS.length, 9);
+test("GARMENTS は10種別・各々が入力定義と pieces 関数を持つ", () => {
+  assert.equal(GARMENTS.length, 10);
   for (const g of GARMENTS) {
     assert.ok(g.id && g.label && typeof g.pieces === "function");
     assert.ok(Array.isArray(g.inputs) && g.inputs.length >= 1);
@@ -610,4 +610,101 @@ test("ハーフパンツ: 最も大きい寸法でも全ての生地幅で前後
   const shorts = getGarment("shorts");
   const maxV = Object.fromEntries(shorts.inputs.map((i) => [i.key, i.max]));
   for (const w of FABRIC_WIDTHS) assert.equal(computeYardage("shorts", w, maxV).widthShortage, false, `${w}cm 幅`);
+});
+
+// ---------------------------------------------------------------------------
+// キュロット: パンツの型に、スカートのような広がりを見込んだ種別。
+// ---------------------------------------------------------------------------
+
+test("キュロット: 入力はキュロット丈・ヒップで、前後パンツとウエストベルトを裁ち、絵文字は他と重ならない", () => {
+  const culottes = getGarment("culottes");
+  assert.deepEqual(culottes.inputs.map((i) => i.key), ["culottesLen", "hip"]);
+  for (const i of culottes.inputs) assert.ok(i.min <= i.def && i.def <= i.max, `${i.key}: 既定値が範囲内`);
+  const labels = computeYardage("culottes", 110, {}).placed.map((p) => p.label);
+  assert.deepEqual([...labels].sort(), ["前パンツ", "後パンツ", "ウエストベルト"].sort());
+  assert.ok(labels.length <= MAX_PERMUTE_PIECES, "全順番を試せる枚数に収まる");
+  const emojis = GARMENTS.map((g) => g.emoji);
+  assert.equal(new Set(emojis).size, emojis.length, "絵文字が重複しない");
+});
+
+test("キュロット: 丈の範囲はスカート・パンツの範囲の内側で、ヒップの範囲は同じ", () => {
+  const cIn = (k) => getGarment("culottes").inputs.find((i) => i.key === k);
+  const sIn = getGarment("skirt").inputs.find((i) => i.key === "skirtLen");
+  const pIn = getGarment("pants").inputs.find((i) => i.key === "pantsLen");
+  const len = cIn("culottesLen");
+  assert.ok(len.min >= sIn.min && len.max <= sIn.max, "スカートの丈の範囲内");
+  assert.ok(len.min >= pIn.min - 10 && len.max <= pIn.max, "パンツの丈の範囲と大きくは外れない");
+  for (const g of ["skirt", "pants", "shorts"]) {
+    const hip = getGarment(g).inputs.find((i) => i.key === "hip");
+    assert.deepEqual([cIn("hip").min, cIn("hip").max], [hip.min, hip.max], `ヒップの範囲は ${g} と同じ`);
+  }
+});
+
+test("キュロット: 前後パーツの幅はパンツより 6cm、スカートより 8cm 広く、丈の見込みは同じ（全ヒップで）", () => {
+  const c = getGarment("culottes");
+  const hipIn = c.inputs.find((i) => i.key === "hip");
+  for (let hip = hipIn.min; hip <= hipIn.max; hip += 1) {
+    const cp = c.pieces({ culottesLen: 65, hip });
+    const pp = getGarment("pants").pieces({ pantsLen: 65, hip });
+    const sp = getGarment("skirt").pieces({ skirtLen: 65, hip });
+    assert.equal(cp[0].w - pp[0].w, 6, `ヒップ ${hip}: パンツとの差`);
+    assert.equal(cp[0].w - sp[0].w, 8, `ヒップ ${hip}: スカートとの差`);
+    assert.equal(cp[0].h, pp[0].h, "丈の見込み（+10cm）はパンツと同じ");
+    assert.equal(cp[0].h, sp[0].h, "丈の見込み（+10cm）はスカートと同じ");
+    assert.deepEqual(cp[2], pp[2], "ウエストベルトはパンツと同じ");
+  }
+});
+
+test("キュロット: 同じ丈・ヒップでパンツより用尺が少なくなることはなく、スカートより少なくなることもない", () => {
+  const c = getGarment("culottes");
+  const cl = c.inputs.find((i) => i.key === "culottesLen");
+  for (const hip of [70, 86, 94, 110, 140]) {
+    for (let len = cl.min; len <= cl.max; len += 5) {
+      for (const w of FABRIC_WIDTHS) {
+        const cu = computeYardage("culottes", w, { culottesLen: len, hip });
+        const pa = computeYardage("pants", w, { pantsLen: Math.max(len, 50), hip });
+        if (len >= 50) assert.ok(cu.totalCm >= pa.totalCm, `丈 ${len}・ヒップ ${hip}@${w}: キュロット ${cu.totalCm} >= パンツ ${pa.totalCm}`);
+        const sk = computeYardage("skirt", w, { skirtLen: len, hip });
+        assert.ok(cu.totalCm >= sk.totalCm, `丈 ${len}・ヒップ ${hip}@${w}: キュロット ${cu.totalCm} >= スカート ${sk.totalCm}`);
+      }
+    }
+  }
+});
+
+test("キュロット: 丈・ヒップを増やしても必要量は減らず、広い生地幅ほど短い（1cm 刻み・全生地幅）", () => {
+  const c = getGarment("culottes");
+  for (const input of c.inputs) {
+    for (const w of FABRIC_WIDTHS) {
+      let prev = -Infinity;
+      for (let x = input.min; x <= input.max; x += 1) {
+        const t = computeYardage("culottes", w, { ...defaults(c), [input.key]: x }).totalCm;
+        // ヒップを増やすと前後が横に並ばなくなり、必要量は増える方向にだけ動く。
+        assert.ok(t >= prev, `culottes.${input.key}@${w}: ${x}cm で ${prev}→${t}`);
+        prev = t;
+      }
+    }
+  }
+  for (const v of [defaults(c), ...grid(c)]) {
+    let prev = Infinity;
+    for (const w of FABRIC_WIDTHS) {
+      const r = computeYardage("culottes", w, v);
+      assert.ok(r.totalCm <= prev, `${JSON.stringify(v)}@${w}: ${r.totalCm} <= ${prev}`);
+      prev = r.totalCm;
+      const over = r.placed.filter((p) => p.w > r.usableWidth);
+      assert.equal(r.widthShortage, over.length > 0, "幅不足の印は使える幅超えと一致");
+    }
+  }
+});
+
+test("キュロット: 範囲外・未入力・不正な値は範囲内に丸められ、未知の id は null、幅不足は印が出る", () => {
+  const c = getGarment("culottes");
+  const lenIn = c.inputs.find((i) => i.key === "culottesLen");
+  const hipIn = c.inputs.find((i) => i.key === "hip");
+  assert.deepEqual(normalizeValues(c, { culottesLen: 9999, hip: -5 }), { culottesLen: lenIn.max, hip: hipIn.min });
+  assert.deepEqual(normalizeValues(c, { culottesLen: "", hip: NaN }), { culottesLen: lenIn.def, hip: hipIn.def });
+  assert.equal(computeYardage("culottes ", 110, {}), null);
+  const widest = computeYardage("culottes", 90, { culottesLen: lenIn.def, hip: hipIn.max });
+  assert.equal(widest.widthShortage, widest.placed.some((p) => p.overflow), "幅不足の印は配置の超過と一致");
+  assert.equal(widest.widthShortage, true, "ヒップ最大・90cm 幅は前パンツが収まらず、印が出る");
+  assert.ok(widest.notes[0].includes("生地幅に収まりません"));
 });
