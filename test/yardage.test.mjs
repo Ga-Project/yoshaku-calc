@@ -27,6 +27,7 @@ import {
   derivedTipsFor,
   findRepresentativeRow,
   getGuide,
+  sideBySide,
 } from "../app/yardage/presets.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -833,4 +834,203 @@ test("表の右端（裁断図の列）の余白・見出し補足の折り返�
   // @media の外には、最後の列への規則が無い（広い画面と既存の見た目を変えない）。
   const outside = css.replace(mine, "");
   assert.ok(!/th:last-child|td:last-child/.test(outside), "広い画面には効かせない");
+});
+
+// ---------------------------------------------------------------------------
+// キュロットの早見表: ページが出ること、本文の主張が計算と配置で裏づけられること。
+// ---------------------------------------------------------------------------
+
+test("キュロットの早見表ページが生成対象・一覧・対象の列挙に入り、sitemap の元になる slug が重複しない", () => {
+  assert.ok(getGuide("culottes"), "GUIDES に culottes がある");
+  assert.ok(buildOverview().rows.some((r) => r.guide.slug === "culottes"), "代表的な一着の比較表に入る");
+  for (const [name, src] of [["layout.tsx", read("app", "layout.tsx")], ["yardage/page.tsx", read("app", "yardage", "page.tsx")]]) {
+    for (const g of GUIDES) assert.ok(src.includes(g.searchName.split("・")[0]), `${name} の説明文に ${g.searchName} が入る`);
+  }
+  assert.ok(read("README.md").includes("キュロット"), "README の対象の列挙にキュロットが入る");
+  const slugs = GUIDES.map((g) => g.slug);
+  assert.equal(new Set(slugs).size, slugs.length, "slug が重複しない（sitemap・JSON-LD の重複を防ぐ）");
+});
+
+test("キュロットの lead『丈が長いほど必要な長さは増える』は、全生地幅で丈の行ごとに増えることで成立する", () => {
+  const guide = getGuide("culottes");
+  assert.ok(/丈が長いほど、必要な長さは増えます/.test(guide.lead), "前提: lead がこの主張をしている");
+  const table = buildTable(guide, guide.axes.find((a) => a.key === "culottesLen"));
+  assert.ok(table.rows.length >= 2);
+  for (let i = 0; i < table.widths.length; i += 1) {
+    for (let k = 1; k < table.rows.length; k += 1) {
+      const a = table.rows[k - 1].cells[i];
+      const b = table.rows[k].cells[i];
+      assert.ok(b.totalCm > a.totalCm, `${table.widths[i]}cm 幅: ${table.rows[k - 1].label}→${table.rows[k].label} で増える`);
+    }
+  }
+});
+
+test("キュロットの lead『パンツ・スカートより広めの型紙』は、入力範囲の全ヒップのパーツ幅の大小で成立する", () => {
+  const guide = getGuide("culottes");
+  const hipIn = getGarment("culottes").inputs.find((i) => i.key === "hip");
+  assert.ok(guide.lead.includes("パンツやスカートの早見表より、裾まわりにゆとりのある広めの型紙"), "前提: lead が大小関係を言っている");
+  for (let hip = hipIn.min; hip <= hipIn.max; hip += 1) {
+    const c = getGarment("culottes").pieces({ culottesLen: guide.base.culottesLen, hip })[0].w;
+    const pants = getGarment("pants").pieces({ pantsLen: guide.base.culottesLen, hip })[0].w;
+    const skirt = getGarment("skirt").pieces({ skirtLen: guide.base.culottesLen, hip })[0].w;
+    assert.ok(c > pants, `ヒップ ${hip}: キュロットはパンツより広い`);
+    assert.ok(c > skirt, `ヒップ ${hip}: キュロットはスカートより広い`);
+  }
+});
+
+test("キュロット: 本文の『縦に積まれる／横に並べられる』と長さ・差は配置から出ている", () => {
+  const guide = getGuide("culottes");
+  const tips = derivedTipsFor(guide);
+  const text = tips.join("\n");
+  assert.ok(tips.length > 0, "注記が出る");
+  const cells = FABRIC_WIDTHS.map((w) => ({ w, res: computeYardage("culottes", w, guide.base), beside: sameRow("culottes", w, guide.base, "前パンツ", "後パンツ") }));
+  for (const { w, res, beside } of cells) {
+    const h = res.placed.find((p) => p.label === "前パンツ").h;
+    if (beside) assert.ok(res.rawCm < h * 2, `${w}cm 幅: 前パンツ 2 枚ぶんに届かない`);
+    else assert.ok(res.rawCm >= h * 2, `${w}cm 幅: 前パンツ 2 枚ぶん以上積む`);
+    assert.ok(text.includes(`${w}cm 幅で ${res.totalM.toFixed(1)}m`), `${w}cm 幅の実測値が載る`);
+  }
+  if (cells.every((c) => !c.beside)) {
+    assert.ok(text.includes("どの生地幅でも前後が縦に積まれ"), "全幅で縦積みと言う");
+    const ms = cells.map((c) => c.res.totalM);
+    assert.ok(text.includes(`生地幅による差は最大 ${(Math.max(...ms) - Math.min(...ms)).toFixed(1)}m`), "差は実測から");
+  } else {
+    assert.ok(!text.includes("どの生地幅でも前後が縦に積まれ"), "並ぶ幅があるのに全幅縦積みと言わない");
+  }
+});
+
+test("キュロットの早見表: 丈の行は入力範囲内で、含まないものを tips に一本で明記し、呼称を付けない", () => {
+  const guide = getGuide("culottes");
+  const axis = guide.axes.find((a) => a.key === "culottesLen");
+  const input = getGarment("culottes").inputs.find((i) => i.key === "culottesLen");
+  for (const row of axis.rows) assert.ok(row.value >= input.min && row.value <= input.max, `${row.label}: 入力範囲内`);
+  assert.ok(guide.base.culottesLen >= input.min && guide.base.culottesLen <= input.max);
+  assert.ok(axis.rows.some((r) => r.value === guide.base.culottesLen), "代表行（base の丈）が表にある");
+  const notIncluded = (t) => t.includes("ポケット") && t.includes("別に見積もって") && t.includes("ゴムを通す場合は、仕立て方によって別に必要なことがあります");
+  assert.equal(guide.tips.filter(notIncluded).length, 1, "tips に 1 件");
+  assert.ok(!guide.pieces.includes("ポケット") && !guide.lead.includes("ポケット"), "pieces・lead に重ねない");
+  assert.ok(!guide.pieces.includes("「わ」") && guide.pieces.includes("二つ折りの生地から左右の脚ぶん"), "『わ』と書かず二つ折りから左右ぶんを一度に裁つと書く");
+  assert.ok(getGarment("culottes").blurb.includes("ポケット"), "計算機の説明にも含まないものを書く");
+  assert.ok(!/ゴムの通し代は(含みません|含まない)/.test(JSON.stringify(guide)), "ゴムの通し代を『含まない』と断定しない");
+  for (const a of guide.axes) for (const row of a.rows) assert.ok(!/（/.test(row.label), `${row.label}: ひざ丈・ミモレ等の呼称を付けない`);
+  assert.ok(!/ひざ|ミモレ|くるぶし/.test(JSON.stringify(guide)), "身長・体型で意味が変わる呼称を本文に書かない");
+});
+
+test("キュロットの早見表: 全ての表の値は computeYardage の実出力で、幅不足の行が無い", () => {
+  const guide = getGuide("culottes");
+  for (const axis of guide.axes) {
+    const table = buildTable(guide, axis);
+    for (const row of table.rows) {
+      table.widths.forEach((w, i) => {
+        const res = computeYardage("culottes", w, { ...guide.base, [axis.key]: row.value });
+        assert.deepEqual([row.cells[i].totalCm, row.cells[i].widthShortage], [res.totalCm, res.widthShortage], `${axis.key}=${row.value}@${w}`);
+        assert.equal(res.widthShortage, false, `${axis.key}=${row.value}@${w}: 幅不足の印を出す必要が無い`);
+      });
+    }
+  }
+});
+
+test("キュロット: 『ヒップ別の表で前後が横に並ばなくなる行』は配置から出ていて、その行で必要な長さが他の行より大きく増える", () => {
+  const guide = getGuide("culottes");
+  const tips = derivedTipsFor(guide).join("\n");
+  const axis = guide.axes.find((a) => a.key === "hip");
+  const table = buildTable(guide, axis);
+  let lostCount = 0;
+  table.widths.forEach((w, i) => {
+    for (let k = 1; k < table.rows.length; k += 1) {
+      const prev = sameRow("culottes", w, { ...guide.base, hip: table.rows[k - 1].value }, "前パンツ", "後パンツ");
+      const cur = sameRow("culottes", w, { ...guide.base, hip: table.rows[k].value }, "前パンツ", "後パンツ");
+      const said = tips.includes(`${w}cm 幅は、${axis.rowHeader} ${table.rows[k].label} の行から`);
+      assert.equal(said, prev && !cur, `${w}cm 幅・${table.rows[k].label}: 本文に載る ⇔ 並ぶ→並ばない`);
+      if (!(prev && !cur)) continue;
+      lostCount += 1;
+      const inc = (j) => table.rows[j].cells[i].totalCm - table.rows[j - 1].cells[i].totalCm;
+      for (let j = 1; j < table.rows.length; j += 1) {
+        if (j !== k) assert.ok(inc(k) > inc(j), `${w}cm 幅: ${table.rows[k].label} の増え方が最大`);
+      }
+    }
+  });
+  assert.ok(lostCount > 0, "前提: 並ばなくなる箇所がある（空のまま通さない）");
+});
+
+test("キュロット⇔スカート・パンツ・ハーフパンツの案内は、入力範囲から書かれ、案内先が存在し、自分自身を指さない", () => {
+  const cIn = getGarment("culottes").inputs.find((i) => i.key === "culottesLen");
+  const range = `${cIn.min}〜${cIn.max}cm`;
+  const find = (slug, key) => {
+    const g = getGuide(slug);
+    const t = buildTable(g, g.axes.find((a) => a.key === key));
+    return t.seeAlso;
+  };
+  // 他ページ → キュロット: 入力範囲から作った丈の範囲と、どんな型かを言う。
+  const fromSkirt = find("skirt", "skirtLen");
+  assert.equal(fromSkirt?.slug, "culottes");
+  assert.ok(fromSkirt.text.includes(range) && fromSkirt.text.includes("脚が左右に分かれた"), "スカート→キュロット: 丈の範囲とどんな型か");
+  const fromPants = find("pants", "hip");
+  assert.equal(fromPants?.slug, "culottes");
+  assert.ok(fromPants.text.includes(range) && fromPants.text.includes("脚が左右に分かれた"), "パンツ→キュロット: 丈の範囲とどんな型か");
+  const fromShorts = find("shorts", "hip");
+  assert.equal(fromShorts?.slug, "culottes");
+  assert.ok(fromShorts.text.includes(range), "ハーフパンツ→キュロット: 丈の範囲");
+  // キュロット → パンツ・スカート: 逆向きの差。
+  const toP = find("culottes", "culottesLen");
+  const toS = find("culottes", "hip");
+  assert.equal(toP?.slug, "pants");
+  assert.equal(toS?.slug, "skirt");
+  // 逆向きの案内が『広がらない／分かれていない』と言う向きは、実際のパーツ幅（キュロットのほうが広い）と合っている。
+  // 案内文が比べる相手はキュロット自身で、パーツ幅はキュロットのほうが広い（全ヒップは lead のテストで固定）。
+  const cw = getGarment("culottes").pieces({ culottesLen: 65, hip: 94 })[0].w;
+  assert.ok(cw > getGarment("pants").pieces({ pantsLen: 65, hip: 94 })[0].w && toP.text.includes("キュロットほど裾が広がらない"), "キュロット→パンツ: キュロットほど広がらない側");
+  assert.ok(toS.text.includes("脚が分かれていない"), "キュロット→スカート: 脚の有無で区別する");
+  assert.equal(toP.name, getGuide("pants").searchName);
+  assert.equal(toS.name, getGuide("skirt").searchName);
+  // 既存の案内（ハーフパンツ⇔パンツの丈の境界）は変わらない。
+  assert.equal(find("pants", "pantsLen")?.slug, "shorts");
+  assert.equal(find("shorts", "shortsLen")?.slug, "pants");
+  // 自分自身へ案内しない（案内は軸ごとに 1 つだけ持てる構造）。
+  for (const g of GUIDES) {
+    for (const a of g.axes) {
+      const t = buildTable(g, a);
+      assert.ok(t.seeAlso === null || t.seeAlso.slug !== g.slug, `${g.slug}.${a.key}: 自分自身へ案内しない`);
+    }
+  }
+  // 案内先が無い slug はビルドを落とす。
+  const g = getGuide("culottes");
+  assert.throws(() => buildTable(g, { ...g.axes[0], seeAlso: { slug: "no-such", text: "" } }), /unknown seeAlso/);
+});
+
+test("キュロット: 幅が広い型紙の注意は、ヒップ別の表で前後が横に並ばなくなる行があるときだけ、その注記の直後に出る", () => {
+  const guide = getGuide("culottes");
+  const tips = derivedTipsFor(guide);
+  const lostAny = FABRIC_WIDTHS.some((w) => {
+    const rows = guide.axes.find((a) => a.key === "hip").rows;
+    return rows.some((r, k) => k > 0 && sameRow("culottes", w, { ...guide.base, hip: rows[k - 1].value }, "前パンツ", "後パンツ") && !sameRow("culottes", w, { ...guide.base, hip: r.value }, "前パンツ", "後パンツ"));
+  });
+  // 前後が横に並ばなくなる行が無いと偽ったとき、注意は出ない（出ない側の分岐を実行して固定する）。
+  const none = guide.derivedTips({
+    baseCells: () => baseCells(guide),
+    sideBySide: (w, a, b) => sideBySide(guide, w, a, b),
+    besideLost: () => [],
+    m: (v) => `${v.toFixed(1)}m`,
+  });
+  assert.ok(!none.some((t) => t.includes("ギャザー") || t.includes("の行から")), "横並びが崩れる行が無ければ注意も出ない");
+  const gi = tips.findIndex((t) => t.includes("ギャザー"));
+  assert.equal(gi >= 0, lostAny, "注意は横並びが崩れる行があるときだけ出る");
+  if (gi >= 0) assert.ok(tips[gi - 1].includes("の行から"), "崩れる行の注記の直後に出る");
+});
+
+test("キュロット: 縦積みと横並びが混在するとき、本文は幅ごとに正しい側へ振り分け、『どの生地幅でも』とは言わない", () => {
+  const guide = getGuide("culottes");
+  // base では全幅が縦積みなので、140cm 幅だけ横に並ぶと偽って、混在の枝を実行して固定する。
+  const mixed = guide.derivedTips({
+    baseCells: () => baseCells(guide),
+    sideBySide: (w) => w === 140,
+    besideLost: () => [],
+    m: (v) => `${v.toFixed(1)}m`,
+  });
+  const text = mixed.join("\n");
+  const at = baseCells(guide);
+  const m = (w) => at.find((c) => c.fabricWidth === w).totalM.toFixed(1);
+  assert.ok(text.includes(`前後が縦に積まれる 90cm 幅で ${m(90)}m、110cm 幅で ${m(110)}m`), "縦積みの側に 90・110cm 幅");
+  assert.ok(text.includes(`前後を横に並べられる 140cm 幅で ${m(140)}m`), "横並びの側に 140cm 幅");
+  assert.ok(!text.includes("どの生地幅でも"), "混在なのに全幅縦積みとは言わない");
 });
