@@ -865,16 +865,16 @@ test("キュロットの lead『丈が長いほど必要な長さは増える』
   }
 });
 
-test("キュロットの lead『パンツより 6cm・スカートより 8cm 広く見込む』は、入力範囲の全ヒップのパーツ幅の差で成立する", () => {
+test("キュロットの lead『パンツ・スカートより広めの型紙』は、入力範囲の全ヒップのパーツ幅の大小で成立する", () => {
   const guide = getGuide("culottes");
   const hipIn = getGarment("culottes").inputs.find((i) => i.key === "hip");
-  const toPants = guide.lead.match(/パンツの早見表より (\d+)cm/);
-  const toSkirt = guide.lead.match(/スカートの早見表より (\d+)cm/);
-  assert.ok(toPants && toSkirt, "前提: lead が両方の数値を言っている");
+  assert.ok(guide.lead.includes("パンツやスカートの早見表より、裾まわりにゆとりのある広めの型紙"), "前提: lead が大小関係を言っている");
   for (let hip = hipIn.min; hip <= hipIn.max; hip += 1) {
     const c = getGarment("culottes").pieces({ culottesLen: guide.base.culottesLen, hip })[0].w;
-    assert.equal(c - getGarment("pants").pieces({ pantsLen: guide.base.culottesLen, hip })[0].w, Number(toPants[1]), `ヒップ ${hip}: パンツとの差`);
-    assert.equal(c - getGarment("skirt").pieces({ skirtLen: guide.base.culottesLen, hip })[0].w, Number(toSkirt[1]), `ヒップ ${hip}: スカートとの差`);
+    const pants = getGarment("pants").pieces({ pantsLen: guide.base.culottesLen, hip })[0].w;
+    const skirt = getGarment("skirt").pieces({ skirtLen: guide.base.culottesLen, hip })[0].w;
+    assert.ok(c > pants, `ヒップ ${hip}: キュロットはパンツより広い`);
+    assert.ok(c > skirt, `ヒップ ${hip}: キュロットはスカートより広い`);
   }
 });
 
@@ -964,10 +964,10 @@ test("キュロット⇔スカート・パンツ・ハーフパンツの案内�
   // 他ページ → キュロット: 入力範囲から作った丈の範囲と、どんな型かを言う。
   const fromSkirt = find("skirt", "skirtLen");
   assert.equal(fromSkirt?.slug, "culottes");
-  assert.ok(fromSkirt.text.includes(range) && fromSkirt.text.includes("二股"), "スカート→キュロット: 丈の範囲とどんな型か");
+  assert.ok(fromSkirt.text.includes(range) && fromSkirt.text.includes("脚が左右に分かれた"), "スカート→キュロット: 丈の範囲とどんな型か");
   const fromPants = find("pants", "hip");
   assert.equal(fromPants?.slug, "culottes");
-  assert.ok(fromPants.text.includes(range) && fromPants.text.includes("二股"), "パンツ→キュロット: 丈の範囲とどんな型か");
+  assert.ok(fromPants.text.includes(range) && fromPants.text.includes("脚が左右に分かれた"), "パンツ→キュロット: 丈の範囲とどんな型か");
   const fromShorts = find("shorts", "hip");
   assert.equal(fromShorts?.slug, "culottes");
   assert.ok(fromShorts.text.includes(range), "ハーフパンツ→キュロット: 丈の範囲");
