@@ -1051,10 +1051,11 @@ test("ギャザースカートの早見表ページが生成対象・一覧・�
   assert.equal(seeAlso?.slug, "gathered-skirt");
   assert.equal(seeAlso.name, "ギャザースカート");
   assert.ok(seeAlso.text.includes(`${GATHER_RATIO}`), "案内文の倍率は計算エンジンの定数から");
+  assert.ok(!seeAlso.text.includes(seeAlso.name), "案内文は案内先の名前を含まない（直後に名前のリンクが続くため二重にならない）");
   // 逆向き: ふつうのスカートへ。自分自身は指さない。
   const gs = getGuide("gathered-skirt");
   assert.equal(buildTable(gs, gs.axes.find((a) => a.key === "skirtLen")).seeAlso?.slug, "skirt");
-  assert.ok(gs.lead.includes(`${GATHER_RATIO} 倍`), "lead の倍率も同じ定数から");
+  assert.ok(gs.pieces.includes(`${GATHER_RATIO} 倍`), "pieces の倍率も同じ定数から");
 });
 
 test("ギャザースカートの lead『丈が長いほど必要な長さは増える』は、全生地幅で丈の行ごとに増えることで成立する", () => {
@@ -1183,4 +1184,17 @@ test("ギャザースカートの早見表: 全セルは computeYardage の実�
   const hipTable = buildTable(guide, guide.axes.find((a) => a.key === "hip"));
   const flagged = hipTable.rows.filter((r) => r.cells.some((c) => c.widthShortage));
   assert.ok(flagged.length > 0 && flagged.every((r) => r.value >= guide.base.hip), "印はヒップが大きい側の行にだけ出る");
+});
+
+test("全幅が縦積みの注記: 幅不足で除かれた生地幅があるときは『どの生地幅でも』と言わず、差が無いときは 0.0m と書かない", () => {
+  const guide = getGuide("gathered-skirt");
+  const cell = (w, m) => ({ fabricWidth: w, totalCm: m * 100, totalM: m, widthShortage: false });
+  const run = (cells) =>
+    guide.derivedTips({ baseCells: () => cells, sideBySide: () => false, besideLost: () => [], m: (v) => `${v.toFixed(1)}m` }).join("\n");
+  // 90cm 幅が幅不足で除かれ、2 幅だけが計算できた。
+  const partial = run([cell(110, 1.6), cell(140, 1.5)]);
+  assert.ok(!partial.includes("どの生地幅でも"), "除かれた幅があるのに全幅と言わない");
+  // 3 幅とも同じ長さ。
+  const same = run([cell(90, 1.6), cell(110, 1.6), cell(140, 1.6)]);
+  assert.ok(same.includes("どの生地幅でも") && same.includes("変わりません") && !same.includes("0.0m"), "差が無いときは変わらないと言う");
 });

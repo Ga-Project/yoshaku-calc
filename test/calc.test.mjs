@@ -743,16 +743,25 @@ test("ギャザースカート: 前後の幅は入力範囲の全ヒップで、
   for (let h = hip.min; h <= hip.max; h += 1) {
     const [front, back] = getGarment("gathered-skirt").pieces({ skirtLen: 60, hip: h });
     const [sFront] = getGarment("skirt").pieces({ skirtLen: 60, hip: h });
-    // わ裁ちの半身分が 2 組（前・後）で、前後あわせた幅の 1/2 ずつ。
-    assert.equal(front.w + back.w, Math.round((h * GATHER_RATIO) / 4) * 2, `ヒップ ${h}: 前後の幅`);
-    assert.ok(Math.abs(front.w * 4 - h * GATHER_RATIO) <= 2, `ヒップ ${h}: 四捨五入のずれは 2cm 以内`);
-    assert.ok(front.w > sFront.w, `ヒップ ${h}: ふつうのスカートより広い`);
+    // わ裁ちの半身分。ヒップ × 倍率の 1/4 に、スカートと同じ縫い代・ゆとり 6cm を足す。
+    assert.equal(front.w, Math.round((h * GATHER_RATIO) / 4 + 6), `ヒップ ${h}: 前の幅`);
+    assert.equal(back.w, front.w, `ヒップ ${h}: 前後は同じ幅`);
+    // 小さいヒップでも、ふつうのスカートより 5cm 以上は広い（差が実質ゼロにならない）。
+    assert.ok(front.w - sFront.w >= 5, `ヒップ ${h}: ふつうのスカートより 5cm 以上広い`);
     assert.equal(front.h, sFront.h, `ヒップ ${h}: 丈はふつうのスカートと同じ`);
   }
 });
 
 test("ギャザースカート: 丈が長いほど必要な長さは増え、生地幅が広いほど減る（または同じ）", () => {
-  const len = getGarment("gathered-skirt").inputs.find((i) => i.key === "skirtLen");
+  const g = getGarment("gathered-skirt");
+  const len = g.inputs.find((i) => i.key === "skirtLen");
+  const hipIn = g.inputs.find((i) => i.key === "hip");
+  for (let hip = hipIn.min; hip <= hipIn.max; hip += 1) {
+    for (let l = len.min; l <= len.max; l += 10) {
+      const [a, b, c] = FABRIC_WIDTHS.map((w) => computeYardage("gathered-skirt", w, { skirtLen: l, hip }).totalCm);
+      assert.ok(a >= b && b >= c, `ヒップ ${hip}・丈 ${l}: 90cm(${a}) >= 110cm(${b}) >= 140cm(${c})`);
+    }
+  }
   for (const hip of [70, 92, 140]) {
     for (const w of FABRIC_WIDTHS) {
       let prev = 0;
@@ -763,4 +772,13 @@ test("ギャザースカート: 丈が長いほど必要な長さは増え、生
       }
     }
   }
+});
+
+test("種別 id は小文字とハイフンだけで、計算機のフォーム部品の id が種別・入力をまたいで一意になる", () => {
+  const ids = [];
+  for (const g of GARMENTS) {
+    assert.ok(/^[a-z]+(-[a-z]+)*$/.test(g.id), `${g.id}: id の形`);
+    for (const i of g.inputs) ids.push(`f-${g.id}-${i.key}`);
+  }
+  assert.equal(new Set(ids).size, ids.length, "フォーム部品の id が重複しない");
 });
