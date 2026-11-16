@@ -12,7 +12,7 @@
 // 無言で通ってしまう（実際それで本文と表の食い違いを 3 件見逃した）。
 
 // node:test から素の ESM として読めるよう、パスエイリアス(@/)ではなく相対で読む。
-import { FABRIC_WIDTHS, computeYardage, getGarment } from "../../lib/calc.mjs";
+import { FABRIC_WIDTHS, GATHER_RATIO, computeYardage, getGarment } from "../../lib/calc.mjs";
 
 /**
  * @typedef {Object} AxisRow
@@ -76,6 +76,9 @@ const PANTS_LEN = LEN_RANGE("pants", "pantsLen");
 export const OVERLAP_LEN = { min: PANTS_LEN.min, max: SHORTS_LEN.max };
 /** ハーフパンツの早見表で固定する寸法。表題・固定寸法の注記はここから作る。 */
 const SHORTS_BASE = { shortsLen: 50, hip: 94 };
+
+/** ギャザースカートの早見表で固定する寸法。表題・固定寸法の注記はここから作る。 */
+const GATHERED_BASE = { skirtLen: 60, hip: 92 };
 
 /** キュロットの早見表で固定する寸法。表題・固定寸法の注記はここから作る。 */
 const CULOTTES_BASE = { culottesLen: 65, hip: 94 };
@@ -275,6 +278,10 @@ export const GUIDES = [
           { value: 100, label: "100cm" },
           { value: 108, label: "108cm" },
         ],
+        seeAlso: {
+          slug: "gathered-skirt",
+          text: `前後あわせてヒップの ${GATHER_RATIO} 倍の幅をウエストに寄せる、ギャザースカートは、`,
+        },
       },
     ],
     tips: [
@@ -289,6 +296,74 @@ export const GUIDES = [
       return [
         `表の標準的な寸法では、前後が横に並ぶのは ${beside.map((c) => `${c.fabricWidth}cm`).join("・")} 幅です。`,
       ];
+    },
+  },
+  {
+    slug: "gathered-skirt",
+    searchName: "ギャザースカート",
+    description:
+      "ギャザースカートに必要な生地の長さ（用尺）を、スカート丈・ヒップと生地幅 90／110／140cm の組み合わせで一覧にした早見表。ウエストに生地を寄せて広げるスカートの見積りに。",
+    lead: `ギャザースカート（ウエストに生地を寄せて、ふんわり広げるスカート）の用尺です。前後 2 枚とウエストベルトで計算していて、前後あわせてヒップの ${GATHER_RATIO} 倍の幅を、寄せる前の生地として見込んでいます。ふつうのスカートの早見表より前後のパーツの幅が広いぶん、前後を横に並べられる生地幅が限られます。丈が長いほど、必要な長さは増えます。`,
+    pieces: "前スカート・後スカートを「わ」で 1 枚ずつ、ウエストベルトを 1 本。どちらも、ギャザーを寄せる前の幅で見込んでいます。",
+    base: GATHERED_BASE,
+    axes: [
+      {
+        key: "skirtLen",
+        caption: `スカート丈別の用尺（ヒップ ${GATHERED_BASE.hip}cm）`,
+        rowHeader: "スカート丈",
+        fixedNote: `ヒップ ${GATHERED_BASE.hip}cm で固定したときの必要な長さ`,
+        rows: [
+          { value: 40, label: "40cm" },
+          { value: 60, label: "60cm" },
+          { value: 80, label: "80cm" },
+          { value: 100, label: "100cm" },
+        ],
+        seeAlso: {
+          slug: "skirt",
+          text: "ギャザーを寄せない、ふつうのスカートは、",
+        },
+      },
+      {
+        key: "hip",
+        caption: `ヒップ別の用尺（スカート丈 ${GATHERED_BASE.skirtLen}cm）`,
+        rowHeader: "ヒップ",
+        fixedNote: `スカート丈 ${GATHERED_BASE.skirtLen}cm で固定したときの必要な長さ`,
+        rows: [
+          { value: 78, label: "78cm" },
+          { value: 86, label: "86cm" },
+          { value: 94, label: "94cm" },
+          { value: 102, label: "102cm" },
+          { value: 110, label: "110cm" },
+          { value: 118, label: "118cm" },
+        ],
+      },
+    ],
+    tips: [
+      "この表で見込んでいるのは前後スカートとウエストベルトだけです。ポケット・飾りのテープなどを付ける場合は、そのぶんを別に見積もってください。ゴムを通す場合は、仕立て方によって別に必要なことがあります。",
+      "ギャザーを多く寄せる型紙や、段を重ねるティアードの型紙は、表より幅を食います。表の数字は、寄せる量を一定にした目安とお考えください。",
+      "ヒップが大きい行で、生地幅が足りない印が出ることがあります。その幅では前後のパーツが生地に収まりません。広い生地幅を選ぶか、中心ではぎ合わせる型紙にしてください。",
+    ],
+    // 「縦に積まれる／横に並ぶ」と、そのときの長さは配置から導出する。
+    derivedTips: (h) => {
+      const at = h.baseCells();
+      const stacked = at.filter((c) => !h.sideBySide(c.fabricWidth, "前スカート", "後スカート"));
+      const beside = at.filter((c) => h.sideBySide(c.fabricWidth, "前スカート", "後スカート"));
+      const list = (cs) => cs.map((c) => `${c.fabricWidth}cm 幅で ${h.m(c.totalM)}`).join("、");
+      const tips = [];
+      if (stacked.length > 0 && beside.length > 0) {
+        tips.push(
+          `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。`,
+        );
+      } else if (stacked.length === at.length && at.length > 0) {
+        const ms = at.map((c) => c.totalM);
+        tips.push(
+          `表の標準的な寸法では、どの生地幅でも前後が縦に積まれ、必要な長さは ${list(stacked)} です。生地幅による差は最大 ${h.m(Math.max(...ms) - Math.min(...ms))} です。`,
+        );
+      }
+      // ヒップ別の表で、前後が横に並べなくなって必要な長さが跳ねる行は、配置から探して言う。
+      const jump = besideLostTip(h, "hip", "前スカート", "後スカート");
+      if (jump) tips.push(jump);
+      return tips;
     },
   },
   {
