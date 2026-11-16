@@ -12,6 +12,7 @@ import {
   SAFETY_MARGIN_CM,
   SELVAGE_CM,
   MAX_PERMUTE_PIECES,
+  GATHER_RATIO,
   packPieces,
 } from "../lib/calc.mjs";
 
@@ -22,8 +23,8 @@ function defaults(garment) {
   return v;
 }
 
-test("GARMENTS は10種別・各々が入力定義と pieces 関数を持つ", () => {
-  assert.equal(GARMENTS.length, 10);
+test("GARMENTS は11種別・各々が入力定義と pieces 関数を持つ", () => {
+  assert.equal(GARMENTS.length, 11);
   for (const g of GARMENTS) {
     assert.ok(g.id && g.label && typeof g.pieces === "function");
     assert.ok(Array.isArray(g.inputs) && g.inputs.length >= 1);
@@ -712,4 +713,73 @@ test("キュロット: 範囲外・未入力・不正な値は範囲内に丸め
   assert.equal(widest.widthShortage, widest.placed.some((p) => p.overflow), "幅不足の印は配置の超過と一致");
   assert.equal(widest.widthShortage, true, "ヒップ最大・90cm 幅は前パンツが収まらず、印が出る");
   assert.ok(widest.notes[0].includes("生地幅に収まりません"));
+});
+
+// ---------------------------------------------------------------------------
+// ギャザースカート: ふつうのスカートと同じパーツ構成で、前後の幅だけ広い種別。
+// ---------------------------------------------------------------------------
+
+test("ギャザースカート: 入力はスカートと同じ型で、前後スカートとウエストベルトを裁ち、絵文字は他と重ならない", () => {
+  const g = getGarment("gathered-skirt");
+  assert.deepEqual(g.inputs.map((i) => i.key), ["skirtLen", "hip"]);
+  for (const i of g.inputs) assert.ok(i.min <= i.def && i.def <= i.max, `${i.key}: 既定値が範囲内`);
+  const labels = computeYardage("gathered-skirt", 110, {}).placed.map((p) => p.label);
+  assert.deepEqual([...labels].sort(), ["前スカート", "後スカート", "ウエストベルト"].sort());
+  assert.ok(labels.length <= MAX_PERMUTE_PIECES, "全順番を試せる枚数に収まる");
+  const emojis = GARMENTS.map((x) => x.emoji);
+  assert.equal(new Set(emojis).size, emojis.length, "絵文字が重複しない");
+  assert.ok(g.blurb.includes("ポケットは含まない") && g.blurb.includes(String(GATHER_RATIO)), "含まないものと倍率を説明に書く");
+});
+
+test("ギャザースカート: 丈の範囲はスカートの内側、ヒップの範囲はスカートと同じ", () => {
+  const sk = (k) => getGarment("skirt").inputs.find((i) => i.key === k);
+  const gs = (k) => getGarment("gathered-skirt").inputs.find((i) => i.key === k);
+  assert.ok(gs("skirtLen").min >= sk("skirtLen").min && gs("skirtLen").max <= sk("skirtLen").max);
+  assert.deepEqual([gs("hip").min, gs("hip").max], [sk("hip").min, sk("hip").max]);
+});
+
+test("ギャザースカート: 前後の幅は入力範囲の全ヒップで、前後あわせてヒップの倍率ぶんで、ふつうのスカートより広い（丈は同じ）", () => {
+  const hip = getGarment("gathered-skirt").inputs.find((i) => i.key === "hip");
+  for (let h = hip.min; h <= hip.max; h += 1) {
+    const [front, back] = getGarment("gathered-skirt").pieces({ skirtLen: 60, hip: h });
+    const [sFront] = getGarment("skirt").pieces({ skirtLen: 60, hip: h });
+    // わ裁ちの半身分。ヒップ × 倍率の 1/4 に、スカートと同じ縫い代・ゆとり 6cm を足す。
+    assert.equal(front.w, Math.round((h * GATHER_RATIO) / 4 + 6), `ヒップ ${h}: 前の幅`);
+    assert.equal(back.w, front.w, `ヒップ ${h}: 前後は同じ幅`);
+    if (h === 92) assert.equal(front.w, 41, "ヒップ 92cm: 92×1.5÷4=34.5 に 6 を足して 40.5、四捨五入で 41");
+    // 小さいヒップでも、ふつうのスカートより 5cm 以上は広い（差が実質ゼロにならない）。
+    assert.ok(front.w - sFront.w >= 5, `ヒップ ${h}: ふつうのスカートより 5cm 以上広い`);
+    assert.equal(front.h, sFront.h, `ヒップ ${h}: 丈はふつうのスカートと同じ`);
+  }
+});
+
+test("ギャザースカート: 丈が長いほど必要な長さは増え、生地幅が広いほど減る（または同じ）", () => {
+  const g = getGarment("gathered-skirt");
+  const len = g.inputs.find((i) => i.key === "skirtLen");
+  const hipIn = g.inputs.find((i) => i.key === "hip");
+  for (let hip = hipIn.min; hip <= hipIn.max; hip += 1) {
+    for (let l = len.min; l <= len.max; l += 10) {
+      const [a, b, c] = FABRIC_WIDTHS.map((w) => computeYardage("gathered-skirt", w, { skirtLen: l, hip }).totalCm);
+      assert.ok(a >= b && b >= c, `ヒップ ${hip}・丈 ${l}: 90cm(${a}) >= 110cm(${b}) >= 140cm(${c})`);
+    }
+  }
+  for (const hip of [70, 92, 140]) {
+    for (const w of FABRIC_WIDTHS) {
+      let prev = 0;
+      for (let l = len.min; l <= len.max; l += 1) {
+        const r = computeYardage("gathered-skirt", w, { skirtLen: l, hip });
+        assert.ok(r.totalCm >= prev, `ヒップ ${hip}@${w}: 丈 ${l}`);
+        prev = r.totalCm;
+      }
+    }
+  }
+});
+
+test("種別 id は小文字とハイフンだけで、計算機のフォーム部品の id が種別・入力をまたいで一意になる", () => {
+  const ids = [];
+  for (const g of GARMENTS) {
+    assert.ok(/^[a-z]+(-[a-z]+)*$/.test(g.id), `${g.id}: id の形`);
+    for (const i of g.inputs) ids.push(`f-${g.id}-${i.key}`);
+  }
+  assert.equal(new Set(ids).size, ids.length, "フォーム部品の id が重複しない");
 });
