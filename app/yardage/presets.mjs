@@ -330,7 +330,7 @@ export const GUIDES = [
     searchName: "ギャザースカート",
     description:
       "ギャザースカートに必要な生地の長さ（用尺）を、スカート丈・ヒップと生地幅 90／110／140cm の組み合わせで一覧にした早見表。ウエストに生地を寄せて広げるスカートの見積りに。",
-    lead: "ギャザースカート（ウエストに生地を寄せて、ふんわり広げるスカート）の用尺です。ふつうのスカートの早見表より前後のパーツの幅が広いぶん、前後を横に並べられる生地幅が限られます。丈が長いほど、必要な長さは増えます。",
+    lead: "ギャザースカート（ウエストに生地を寄せて、ふんわり広げるスカート）の用尺です。ふつうのスカートの早見表より前後のパーツの幅が広いぶん、前後が横に並びにくくなります。丈が長いほど、必要な長さは増えます。",
     pieces: `前スカート・後スカートを「わ」で 1 枚ずつ、ウエストベルトを 1 本。前後スカートは、前後あわせてヒップの ${GATHER_RATIO} 倍の幅に縫い代のぶんを足した、ギャザーを寄せる前の幅で見込んでいます。`,
     base: GATHERED_BASE,
     axes: [
@@ -366,7 +366,6 @@ export const GUIDES = [
       },
     ],
     tips: [
-      "ヒップが大きい行では、生地幅が足りない印が出ることがあります。印の意味は、その表のすぐ下に書いています。",
       "この表で見込んでいるのは前後スカートとウエストベルトだけです。ポケット・飾りのテープなどを付ける場合は、そのぶんを別に見積もってください。ゴムを通す場合は、仕立て方によって別に必要なことがあります。",
       "ギャザーを多く寄せる型紙や、段を重ねるティアードの型紙は、表より幅を食います。表の数字は、寄せる量を一定にした目安とお考えください。",
     ],
@@ -555,24 +554,7 @@ export const GUIDES = [
     ],
     // 「縦に積まれる／横に並ぶ」と、そのときの長さは配置から導出する。
     derivedTips: (h) => {
-      const at = h.baseCells();
-      const stacked = at.filter((c) => !h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
-      const beside = at.filter((c) => h.sideBySide(c.fabricWidth, "前パンツ", "後パンツ"));
-      const list = (cs) => cs.map((c) => `${c.fabricWidth}cm 幅で ${h.m(c.totalM)}`).join("、");
-      const tips = [];
-      if (stacked.length > 0 && beside.length > 0) {
-        tips.push(
-          `表の標準的な寸法では、前後が縦に積まれる ${list(stacked)}、前後を横に並べられる ${list(beside)} です。`,
-        );
-      } else if (stacked.length === FABRIC_WIDTHS.length) {
-        // 全ての生地幅が幅不足なく計算できて、かつ全部が縦積みのときだけ言う。
-        const ms = at.map((c) => c.totalM);
-        const gap = Math.max(...ms) - Math.min(...ms);
-        const gapText = gap > 0 ? `生地幅による差は最大 ${h.m(gap)} です。` : "生地幅によって必要な長さは変わりません。";
-        tips.push(
-          `表の標準的な寸法では、どの生地幅でも前後が縦に積まれ、必要な長さは ${list(stacked)} です。${gapText}`,
-        );
-      }
+      const tips = stackedBesideTips(h, "前パンツ", "後パンツ");
       // ヒップ別の表で、前後が横に並べなくなって必要な長さが跳ねる行は、配置から探して言う。
       const jump = besideLostTip(h, "hip", "前パンツ", "後パンツ");
       if (jump) {

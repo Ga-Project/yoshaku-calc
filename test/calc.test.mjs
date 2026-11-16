@@ -746,6 +746,7 @@ test("ギャザースカート: 前後の幅は入力範囲の全ヒップで、
     // わ裁ちの半身分。ヒップ × 倍率の 1/4 に、スカートと同じ縫い代・ゆとり 6cm を足す。
     assert.equal(front.w, Math.round((h * GATHER_RATIO) / 4 + 6), `ヒップ ${h}: 前の幅`);
     assert.equal(back.w, front.w, `ヒップ ${h}: 前後は同じ幅`);
+    if (h === 92) assert.equal(front.w, 41, "ヒップ 92cm: 92×1.5÷4=34.5 に 6 を足して 40.5、四捨五入で 41");
     // 小さいヒップでも、ふつうのスカートより 5cm 以上は広い（差が実質ゼロにならない）。
     assert.ok(front.w - sFront.w >= 5, `ヒップ ${h}: ふつうのスカートより 5cm 以上広い`);
     assert.equal(front.h, sFront.h, `ヒップ ${h}: 丈はふつうのスカートと同じ`);

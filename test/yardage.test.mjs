@@ -1069,9 +1069,9 @@ test("ギャザースカートの lead『丈が長いほど必要な長さは増
   }
 });
 
-test("ギャザースカートの lead『ふつうのスカートより横に並べられる生地幅が限られる』は、全入力で成立し、実際に差が出る", () => {
+test("ギャザースカートの lead『ふつうのスカートより前後が横に並びにくい』は、全入力で成立し、実際に差が出る", () => {
   const guide = getGuide("gathered-skirt");
-  assert.ok(guide.lead.includes("前後を横に並べられる生地幅が限られます"), "前提: lead がこの主張をしている");
+  assert.ok(guide.lead.includes("前後が横に並びにくくなります"), "前提: lead がこの主張をしている");
   const g = getGarment("gathered-skirt");
   const hipIn = g.inputs.find((i) => i.key === "hip");
   const lenIn = g.inputs.find((i) => i.key === "skirtLen");
@@ -1163,7 +1163,7 @@ test("ギャザースカートの早見表: 行は入力範囲内で、代表行
   assert.ok(!/ひざ|ミモレ|くるぶし/.test(JSON.stringify(guide)), "身長・体型で意味が変わる呼称を本文に書かない");
 });
 
-test("ギャザースカートの早見表: 全セルは computeYardage の実出力で、tips の『幅が足りない印が出る』は表で成立する", () => {
+test("ギャザースカートの早見表: 全セルは computeYardage の実出力で、幅が足りない印は表のヒップが大きい行にだけ出る", () => {
   const guide = getGuide("gathered-skirt");
   let shortage = 0;
   for (const axis of guide.axes) {
@@ -1176,7 +1176,7 @@ test("ギャザースカートの早見表: 全セルは computeYardage の実�
       });
     }
   }
-  assert.ok(guide.tips.some((t) => t.includes("生地幅が足りない印が出ることがあります")), "前提: tips がこの主張をしている");
+  assert.ok(!guide.tips.some((t) => t.includes("印の意味")), "印の説明は表直下の 1 か所だけ（tips に重ねない）");
   assert.ok(shortage > 0, "表に幅不足の印が出るセルがある");
   // 印が出るのはヒップ別の表だけ（丈別の表は base のヒップで全幅が収まる）。tips は『ヒップが大きい行で』と言う。
   const lenTable = buildTable(guide, guide.axes.find((a) => a.key === "skirtLen"));
